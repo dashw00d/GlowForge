@@ -1,31 +1,31 @@
-# Vision Handoff — Builder Mode
+# GlowForge Handoff — Builder Mode
 
-## Last Run (2026-02-18 — Builder Run 2)
+## Last Run (2026-02-18 — Builder Run 3)
 
 ### Task completed
-**Health strip** — `5f62e07`
+**History drawer** — `be25460`
 
 ### What was built
-- `src/components/ui/HealthStrip.tsx` — full-width status bar spanning top of entire app layout
-  - Polls `GET /api/system/health` every 30 seconds
-  - Three display modes:
-    1. **Compact** (all ok): single green dot + "Lantern healthy" + 4 chip indicators (Daemon/DNS/Caddy/TLS)
-    2. **Expanded** (any issue): row of labeled indicators, shows message for anything non-ok, animated pulse on warning/error
-    3. **Error** (Lantern unreachable): red banner prompting user to start daemon at 127.0.0.1:4777
-  - Zero render until first response (no flash on load)
-- `src/App.tsx` — restructured to `flex-col`, HealthStrip at top, three-column body below in `flex-1 min-h-0`; also added missing `border-r` on ToolDetail panel
+- `src/components/LoomChat/HistoryDrawer.tsx`
+  - Collapsible toggle row in chat panel (below header, above messages)
+  - Shows recent trace count in toggle when collapsed
+  - Expanded: scrollable list (max-h-56) of last 20 traces from `GET /history`
+  - Each row: status icon, truncated prompt, status label (colored), relative timestamp, trace_id prefix
+  - "Load" button per row — adds that trace's TraceCard to the current session
+  - Tracks already-loaded IDs (shows "loaded" text, disabled button) to prevent duplicates
+  - Refresh button in toolbar; auto-loads on open
+  - Handles Loom unreachable gracefully
+- `src/components/LoomChat/ChatPanel.tsx`
+  - Integrated HistoryDrawer just below header
+  - `handleLoadHistory` — appends history entry as a Message, scrolls to bottom
+  - `loadedIds` Set derived from current messages array, passed to drawer
 
 ### Build
-- TypeScript: clean, Build: ✓ 1.50s
-
-### To run
-```bash
-cd ~/tools/GlowForge && npm run dev   # http://localhost:5274
-```
+- TypeScript: clean, Build: ✓ 1.46s
 
 ## Next task (top of backlog)
 
-**History sidebar** — collapsible list of past Loom traces from `GET /history`. Should appear in the chat panel above the input, collapsed by default, expandable to see recent trace summaries.
+**Schedule manager** — collapsible drawer at the bottom of the left panel showing Loom schedules. `GET /schedules`, list with enabled/disabled state, toggle via `PATCH /schedules/{id}`. Each row shows: schedule ID, action type, expression, enabled toggle.
 
 ## Project state
-`~/tools/GlowForge/` — 2 commits, 27 files, builds clean.
+`~/tools/GlowForge/` — 3 commits (bdd938c → 5f62e07 → be25460), builds clean.

@@ -3,6 +3,7 @@ import { RefreshCw, Search } from 'lucide-react'
 import { listTools } from '../../api/lantern'
 import { ToolCard } from './ToolCard'
 import { Spinner } from '../ui/Spinner'
+import { ScheduleManager } from './ScheduleManager'
 import type { ToolSummary } from '../../types'
 
 interface Props {
@@ -112,6 +113,9 @@ export function ToolList({ selectedId, onSelect }: Props) {
           ))}
         </div>
       </div>
+
+      {/* Schedule manager — pinned to bottom */}
+      <ScheduleManager />
     </div>
   )
 }

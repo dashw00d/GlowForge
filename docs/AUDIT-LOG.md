@@ -889,4 +889,5 @@ Reads `result["data"]["items"]` — implicit contract with extension's `task-exe
 9. **M4** — `extension/background.js` watchdog timeout for hung `executeTask()` (halts all task processing forever) ✅ FIXED 4645e4c (browser repo)
 10. **M5** — `extension/queue-client.js` retry for `postResult()` (transient outage = permanent result loss) ✅ FIXED 2fec359 (browser repo)
 11. **M6** — `scaffoldTool()`/`createSchedule()` read `err.message` not `err.error` (UI shows opaque codes in error toasts) ✅ FIXED d3ca657
-12. **M7** — `loom.ts` `DELETE /traces/{id}` 200 on nonexistent IDs — treat as no-op (ghost "running" records)
+12. **M7** — `loom.ts` `DELETE /traces/{id}` 200 on nonexistent IDs — treat as no-op (ghost "running" records) ✅ FIXED afc79da
+13. **M8** — `ToolDetail` `isRelevantSchedule()` dead field checks (`s.url/message/command` never returned by Loom) — remove dead code

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Queue UI — browser queue drawer: pending tasks, recent results, dispatch form, live status
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -13,14 +13,9 @@
 - [x] TraceCard polish — copy button, expand/collapse long outputs, prominent plan while running — `500d9d7`
 - [x] Server-side browser task queue — Vite plugin API at `/api/browser/*`, in-memory queue with TTL — `507eec5`
 - [x] Frontend API client for queue — `src/api/browser.ts` — `507eec5`
+- [x] Browser queue drawer — collapsible panel with live status, dispatch form (action/URL/params/TTL), pending task list, results tab — `ffe2baf`
 
 ## Backlog
-
-### 1. Queue UI (do first — connects GlowForge to browser extension)
-- [ ] Queue panel — new component: pending task list, recent results with status badges, pending count
-- [ ] Dispatch form — action type dropdown, target URL input, params JSON editor, TTL slider → POST `/api/browser/tasks`
-- [ ] Live refresh — poll `/api/browser/queue` every 5s, show connected/disconnected indicator
-- [ ] Wire into layout — collapsible drawer or dedicated tab in the main UI
 
 ### 2. Tool Creation Wizard (Phase 2 headline)
 - [ ] "New Tool" modal — name, description, kind fields

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Tool creation wizard — "New Tool" modal: name/description/kind/template, scaffold lantern.yaml, register with Lantern
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -14,14 +14,9 @@
 - [x] Server-side browser task queue — Vite plugin API at `/api/browser/*`, in-memory queue with TTL — `507eec5`
 - [x] Frontend API client for queue — `src/api/browser.ts` — `507eec5`
 - [x] Browser queue drawer — collapsible panel with live status, dispatch form (action/URL/params/TTL), pending task list, results tab — `ffe2baf`
+- [x] Tool creation wizard — scaffold plugin (lantern.yaml+README), Lantern registration, modal UI with kind/template/tags, + button in registry header — `67e772b`
 
 ## Backlog
-
-### 2. Tool Creation Wizard (Phase 2 headline)
-- [ ] "New Tool" modal — name, description, kind fields
-- [ ] Scaffold generator — creates tool directory + lantern.yaml from template
-- [ ] Registration pipeline — write files → trigger Lantern rescan → tool appears in registry panel
-- [ ] Chat integration — "build me a tool" in Loom chat triggers the wizard flow
 
 ### 3. Declarative Scheduling (Phase 3)
 - [ ] Schedule toggle in ToolDetail — per-tool schedule view from Loom `/schedules`

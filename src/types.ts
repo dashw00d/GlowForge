@@ -94,6 +94,7 @@ export type TraceStatus =
   | 'paused'
   | 'awaiting_confirmation'
   | 'awaiting_input'
+  | 'await_user'        // Loom /history alias for awaiting_input
   | 'success'
   | 'partial'
   | 'failed'

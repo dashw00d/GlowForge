@@ -22,12 +22,16 @@ export function relativeTime(iso: string): string {
 // ── Status → CSS class map ─────────────────────────────────
 
 export const STATUS_LABEL: Record<TraceStatus | string, string> = {
-  success:   'text-[var(--color-green)]',
-  partial:   'text-[var(--color-yellow)]',
-  failed:    'text-[var(--color-red)]',
-  error:     'text-[var(--color-red)]',
-  running:   'text-[var(--color-accent)]',
-  cancelled: 'text-[var(--color-text-muted)]',
+  success:               'text-[var(--color-green)]',
+  partial:               'text-[var(--color-yellow)]',
+  failed:                'text-[var(--color-red)]',
+  error:                 'text-[var(--color-red)]',
+  running:               'text-[var(--color-accent)]',
+  cancelled:             'text-[var(--color-text-muted)]',
+  paused:                'text-[var(--color-yellow)]',
+  awaiting_confirmation: 'text-[var(--color-yellow)]',
+  awaiting_input:        'text-[var(--color-yellow)]',
+  await_user:            'text-[var(--color-yellow)]',
 }
 
 // ── Rotating verb arrays (used by TraceCard) ───────────────

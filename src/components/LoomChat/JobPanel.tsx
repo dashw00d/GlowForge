@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import {
   Briefcase, ChevronDown, ChevronUp, RefreshCw, ExternalLink,
-  CheckCircle, XCircle, AlertCircle, Clock, Loader2, Ban, X,
+  CheckCircle, XCircle, AlertCircle, Clock, Loader2, Ban, X, Pause, MessageSquare,
 } from 'lucide-react'
 import { listHistory } from '../../api/loom'
 import { cn } from '../../lib/utils'
@@ -23,12 +23,16 @@ interface JobPanelProps {
 }
 
 const STATUS_ICON: Record<string, React.ReactNode> = {
-  success:   <CheckCircle className="size-3 text-[var(--color-green)] shrink-0" />,
-  partial:   <CheckCircle className="size-3 text-[var(--color-yellow)] shrink-0" />,
-  failed:    <XCircle className="size-3 text-[var(--color-red)] shrink-0" />,
-  error:     <AlertCircle className="size-3 text-[var(--color-red)] shrink-0" />,
-  running:   <Loader2 className="size-3 text-[var(--color-accent)] shrink-0 animate-spin" />,
-  cancelled: <Ban className="size-3 text-[var(--color-text-muted)] shrink-0" />,
+  success:               <CheckCircle className="size-3 text-[var(--color-green)] shrink-0" />,
+  partial:               <CheckCircle className="size-3 text-[var(--color-yellow)] shrink-0" />,
+  failed:                <XCircle className="size-3 text-[var(--color-red)] shrink-0" />,
+  error:                 <AlertCircle className="size-3 text-[var(--color-red)] shrink-0" />,
+  running:               <Loader2 className="size-3 text-[var(--color-accent)] shrink-0 animate-spin" />,
+  cancelled:             <Ban className="size-3 text-[var(--color-text-muted)] shrink-0" />,
+  paused:                <Pause className="size-3 text-[var(--color-yellow)] shrink-0" />,
+  awaiting_confirmation: <AlertCircle className="size-3 text-[var(--color-yellow)] shrink-0" />,
+  awaiting_input:        <MessageSquare className="size-3 text-[var(--color-yellow)] shrink-0" />,
+  await_user:            <MessageSquare className="size-3 text-[var(--color-yellow)] shrink-0" />,
 }
 
 export function JobPanel({ messages, statusMap, cancelledIds, onCancel, onLoadHistory }: JobPanelProps) {

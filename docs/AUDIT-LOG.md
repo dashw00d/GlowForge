@@ -886,7 +886,7 @@ Reads `result["data"]["items"]` — implicit contract with extension's `task-exe
 6. **H2** — `buildYamlPath()` case sensitivity (build system broken for 3/9 tools) ✅ FIXED de73878
 7. **H1** — ENDPOINTS.md write route correction (document the `/write` suffix) ✅ FIXED 50c3159
 8. **C5 / H5** — Loom field mismatches (requires Loom-side changes or type corrections) ✅ FIXED 781ce06
-9. **M4** — `extension/background.js` watchdog timeout for hung `executeTask()` (halts all task processing forever)
+9. **M4** — `extension/background.js` watchdog timeout for hung `executeTask()` (halts all task processing forever) ✅ FIXED 4645e4c (browser repo)
 10. **M5** — `extension/queue-client.js` retry for `postResult()` (transient outage = permanent result loss)
 11. **M6** — `scaffoldTool()`/`createSchedule()` read `err.message` not `err.error` (UI shows opaque codes in error toasts)
 12. **M7** — `loom.ts` `DELETE /traces/{id}` 200 on nonexistent IDs — treat as no-op (ghost "running" records)

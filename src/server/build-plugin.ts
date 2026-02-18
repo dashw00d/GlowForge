@@ -43,11 +43,26 @@ function parseBody(req: IncomingMessage): Promise<string> {
   })
 }
 
-/** Resolve the build.yaml path for a tool. */
+/** Resolve the build.yaml path for a tool (case-insensitive directory match). */
 function buildYamlPath(toolId: string): string {
   // Sanitize — prevent path traversal
   const safe = toolId.replace(/[^a-zA-Z0-9_-]/g, '')
-  return path.join(os.homedir(), 'tools', safe, 'build.yaml')
+  const toolsDir = path.join(os.homedir(), 'tools')
+
+  // Try exact match first (fast path)
+  const exactPath = path.join(toolsDir, safe, 'build.yaml')
+  if (fs.existsSync(exactPath)) return exactPath
+
+  // Fall back to case-insensitive directory scan
+  try {
+    const entries = fs.readdirSync(toolsDir)
+    const match = entries.find((e) => e.toLowerCase() === safe.toLowerCase())
+    if (match) return path.join(toolsDir, match, 'build.yaml')
+  } catch {
+    // readdirSync failed — fall through, will 404 gracefully below
+  }
+
+  return exactPath
 }
 
 /** Parse and validate a build.yaml file. Throws on invalid YAML or missing required fields. */

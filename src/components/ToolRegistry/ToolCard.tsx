@@ -14,19 +14,19 @@ interface Props {
 export function ToolCard({ tool, selected, onSelect, onRefresh }: Props) {
   async function handleStart(e: React.MouseEvent) {
     e.stopPropagation()
-    await activateTool(tool.id).catch(console.error)
+    await activateTool(tool.name).catch(console.error)
     onRefresh()
   }
 
   async function handleStop(e: React.MouseEvent) {
     e.stopPropagation()
-    await deactivateTool(tool.id).catch(console.error)
+    await deactivateTool(tool.name).catch(console.error)
     onRefresh()
   }
 
   async function handleRestart(e: React.MouseEvent) {
     e.stopPropagation()
-    await restartTool(tool.id).catch(console.error)
+    await restartTool(tool.name).catch(console.error)
     onRefresh()
   }
 

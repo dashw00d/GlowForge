@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check } from 'lucide-react'
-import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject } from '../../api/lantern'
+import { useEffect, useRef, useState } from 'react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search } from 'lucide-react'
+import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, LANTERN_BASE } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
 import { listSchedules, toggleSchedule, createSchedule, deleteSchedule } from '../../api/loom'
 import type { CreateScheduleInput } from '../../api/loom'
@@ -16,7 +16,7 @@ interface Props {
   onDeleted?: () => void
 }
 
-type Tab = 'overview' | 'endpoints' | 'docs' | 'schedules'
+type Tab = 'overview' | 'endpoints' | 'docs' | 'schedules' | 'logs'
 
 type DeleteState = 'idle' | 'confirm' | 'deleting'
 
@@ -225,7 +225,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       {tool && (
         <>
           <div className="flex border-b border-[var(--color-border)] shrink-0 overflow-x-auto">
-            {(['overview', 'endpoints', 'docs', 'schedules'] as Tab[]).map((t) => (
+            {(['overview', 'endpoints', 'docs', 'schedules', 'logs'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -240,6 +240,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
                 {t === 'endpoints' && <Zap className="size-3 inline mr-1" />}
                 {t === 'docs' && <FileText className="size-3 inline mr-1" />}
                 {t === 'schedules' && <Calendar className="size-3 inline mr-1" />}
+                {t === 'logs' && <ScrollText className="size-3 inline mr-1" />}
                 {t}
               </button>
             ))}
@@ -250,6 +251,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
             {tab === 'endpoints' && <EndpointsTab tool={tool} />}
             {tab === 'docs' && <DocsTab toolId={toolId} tool={tool} />}
             {tab === 'schedules' && <SchedulesTab toolId={toolId} toolName={tool.name} />}
+            {tab === 'logs' && <LogsTab toolId={toolId} />}
           </div>
         </>
       )}
@@ -1095,6 +1097,236 @@ function ScheduleRow({
           last: {relativeTime(schedule.last_fired)}
         </span>
       </div>
+    </div>
+  )
+}
+
+// ─── Logs Tab ─────────────────────────────────────────────────────────────────
+
+const MAX_LOG_LINES = 500
+
+function classifyLine(line: string): 'error' | 'warn' | 'debug' | 'success' | 'default' {
+  const l = line.toLowerCase()
+  if (/\b(error|exception|traceback|critical|fatal|fail)\b/.test(l)) return 'error'
+  if (/\b(warn|warning|caution|deprecated)\b/.test(l)) return 'warn'
+  if (/\b(debug)\b/.test(l)) return 'debug'
+  if (/\b(success|✓|complete|started|ready|running|ok)\b/.test(l)) return 'success'
+  return 'default'
+}
+
+const LINE_CLASS: Record<string, string> = {
+  error:   'text-[var(--color-red)]',
+  warn:    'text-[var(--color-yellow)]',
+  debug:   'text-[var(--color-text-muted)]',
+  success: 'text-[var(--color-green)]',
+  default: 'text-[var(--color-text-secondary)]',
+}
+
+function LogsTab({ toolId }: { toolId: string }) {
+  const [lines, setLines] = useState<string[]>([])
+  const [filter, setFilter] = useState('')
+  const [connected, setConnected] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [revision, setRevision] = useState(0) // bump to reconnect
+
+  const containerRef = useRef<HTMLDivElement>(null)
+  const atBottomRef = useRef(true)
+  const esRef = useRef<EventSource | null>(null)
+
+  // Auto-scroll: track whether user is near bottom
+  function handleScroll() {
+    const el = containerRef.current
+    if (!el) return
+    const threshold = 50
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+  }
+
+  // Scroll to bottom when new lines arrive (only if at bottom)
+  useEffect(() => {
+    if (atBottomRef.current && containerRef.current) {
+      containerRef.current.scrollTop = containerRef.current.scrollHeight
+    }
+  }, [lines])
+
+  // SSE connection
+  useEffect(() => {
+    setLines([])
+    setError(null)
+    setConnected(false)
+
+    const url = `${LANTERN_BASE}/api/projects/${encodeURIComponent(toolId)}/logs`
+    const es = new EventSource(url)
+    esRef.current = es
+
+    es.onopen = () => {
+      setConnected(true)
+      setError(null)
+    }
+
+    es.onmessage = (e) => {
+      const line = e.data as string
+      setLines((prev) => {
+        const next = [...prev, line]
+        // Trim to MAX_LOG_LINES
+        return next.length > MAX_LOG_LINES ? next.slice(next.length - MAX_LOG_LINES) : next
+      })
+    }
+
+    es.onerror = () => {
+      setConnected(false)
+      // Don't set error on first connect attempt — Lantern may return 404 for stopped tools
+      // Only set error after we've received at least one message (means we were connected)
+      es.close()
+      esRef.current = null
+    }
+
+    return () => {
+      es.close()
+      esRef.current = null
+    }
+  }, [toolId, revision])
+
+  function handleRefresh() {
+    setRevision((v) => v + 1)
+  }
+
+  function handleClear() {
+    setLines([])
+  }
+
+  const filtered = filter
+    ? lines.filter((l) => l.toLowerCase().includes(filter.toLowerCase()))
+    : lines
+
+  return (
+    <div className="flex flex-col gap-2">
+      {/* Toolbar */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Connection status */}
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-full font-medium shrink-0',
+            connected
+              ? 'bg-[var(--color-green-subtle)] text-[var(--color-green)]'
+              : 'bg-[var(--color-surface-raised)] text-[var(--color-text-muted)]'
+          )}
+        >
+          <span
+            className={cn(
+              'size-1.5 rounded-full',
+              connected ? 'bg-[var(--color-green)]' : 'bg-[var(--color-text-muted)]'
+            )}
+          />
+          {connected ? 'live' : 'offline'}
+        </span>
+
+        {/* Filter */}
+        <div
+          className="flex items-center gap-1 flex-1 px-1.5 py-0.5 rounded"
+          style={{ backgroundColor: 'var(--color-surface-raised)', border: '1px solid var(--color-border-subtle)' }}
+        >
+          <Search className="size-2.5 text-[var(--color-text-muted)] shrink-0" />
+          <input
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            placeholder="Filter…"
+            className="flex-1 bg-transparent text-[10px] text-[var(--color-text-primary)] placeholder-[var(--color-text-muted)] outline-none"
+          />
+          {filter && (
+            <button
+              onClick={() => setFilter('')}
+              className="text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
+            >
+              <X className="size-2.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Line count */}
+        <span className="text-[9px] text-[var(--color-text-muted)] shrink-0">
+          {filter ? `${filtered.length}/${lines.length}` : `${lines.length}`}
+        </span>
+
+        {/* Clear */}
+        <button
+          onClick={handleClear}
+          title="Clear"
+          className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] transition-colors shrink-0"
+        >
+          <X className="size-3" />
+        </button>
+
+        {/* Refresh (reconnect) */}
+        <button
+          onClick={handleRefresh}
+          title="Reconnect"
+          className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)] transition-colors shrink-0"
+        >
+          <RefreshCw className="size-3" />
+        </button>
+      </div>
+
+      {/* Error banner */}
+      {error && (
+        <div className="text-[10px] text-[var(--color-red)] flex items-center gap-1.5 shrink-0">
+          <AlertCircle className="size-3 shrink-0" />
+          {error}
+        </div>
+      )}
+
+      {/* Empty state */}
+      {!connected && lines.length === 0 && !error && (
+        <div className="flex flex-col items-center justify-center gap-2 text-center py-12">
+          <ScrollText className="size-6 text-[var(--color-text-muted)] opacity-40" />
+          <p className="text-[11px] text-[var(--color-text-muted)]">
+            No logs available
+          </p>
+          <p className="text-[10px] text-[var(--color-text-muted)] opacity-70">
+            Tool may be stopped or logs not yet buffered
+          </p>
+          <button
+            onClick={handleRefresh}
+            className="flex items-center gap-1 text-[10px] px-2 py-1 rounded transition-colors mt-1"
+            style={{ color: 'var(--color-accent)', backgroundColor: 'var(--color-accent-subtle)' }}
+          >
+            <RefreshCw className="size-2.5" />
+            Retry
+          </button>
+        </div>
+      )}
+
+      {/* Log output */}
+      {(lines.length > 0 || connected) && (
+        <div
+          ref={containerRef}
+          onScroll={handleScroll}
+          className="overflow-y-auto rounded text-[10px] font-mono leading-relaxed p-2"
+          style={{
+            backgroundColor: 'var(--color-surface-raised)',
+            border: '1px solid var(--color-border-subtle)',
+            height: '380px',
+          }}
+        >
+          {filtered.length === 0 && filter ? (
+            <p className="text-[var(--color-text-muted)] italic">No lines match "{filter}"</p>
+          ) : (
+            filtered.map((line, i) => {
+              const kind = classifyLine(line)
+              return (
+                <div
+                  key={i}
+                  className={cn('whitespace-pre-wrap break-all', LINE_CLASS[kind])}
+                >
+                  {line}
+                </div>
+              )
+            })
+          )}
+          {connected && filtered.length === 0 && !filter && (
+            <span className="text-[var(--color-text-muted)] animate-pulse">▌</span>
+          )}
+        </div>
+      )}
     </div>
   )
 }

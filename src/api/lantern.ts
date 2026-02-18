@@ -6,7 +6,8 @@ import type {
   SystemHealth,
 } from '../types'
 
-const BASE = 'http://127.0.0.1:4777'
+export const LANTERN_BASE = 'http://127.0.0.1:4777'
+const BASE = LANTERN_BASE
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {

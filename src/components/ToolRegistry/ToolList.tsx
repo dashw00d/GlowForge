@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { RefreshCw, Search, Plus } from 'lucide-react'
 import { listTools } from '../../api/lantern'
+import { connectLantern, disconnectLantern, onProjectsChanged } from '../../api/lanternSocket'
 import { fetchBuildStatuses, isActiveBuild } from '../../api/build'
 import { ToolCard } from './ToolCard'
 import { BuildCard } from './BuildCard'
@@ -46,8 +47,8 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshK
 
   // ── Tool list loading ───────────────────────────────────────────────────────
 
-  // Track if initial build check has been done
-  const buildCheckDone = useRef(false)
+  // Track tools whose build.yaml existence was checked at least once
+  const checkedBuildIdsRef = useRef<Set<string>>(new Set())
 
   const load = useCallback(async () => {
     setError(null)
@@ -55,10 +56,13 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshK
       const data = await listTools()
       setTools(data)
       toolIdsRef.current = data.map((t) => t.id)
-      // Only check builds once on initial load, not every 10s poll
-      if (!buildCheckDone.current) {
-        buildCheckDone.current = true
-        await loadBuilds(toolIdsRef.current)
+
+      // Probe build status for newly discovered tools only.
+      // Avoids re-checking all tools every 10s while still handling new scaffolds.
+      const unchecked = toolIdsRef.current.filter((id) => !checkedBuildIdsRef.current.has(id))
+      if (unchecked.length > 0) {
+        for (const id of unchecked) checkedBuildIdsRef.current.add(id)
+        await loadBuilds(unchecked)
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load tools')
@@ -67,17 +71,40 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshK
     }
   }, [loadBuilds])
 
+  const loadRef = useRef(load)
+  useEffect(() => {
+    loadRef.current = load
+  }, [load])
+
+  // Realtime invalidation from Lantern websocket channel.
+  // We still keep polling as a fallback.
+  useEffect(() => {
+    connectLantern()
+    const unsubscribe = onProjectsChanged(() => {
+      void loadRef.current()
+    })
+
+    return () => {
+      unsubscribe()
+      disconnectLantern()
+    }
+  }, [])
+
   // Main polling interval: 10s (covers tool status changes)
   useEffect(() => {
-    load()
-    const id = setInterval(load, 10_000)
+    void load()
+    const id = setInterval(() => {
+      void load()
+    }, 10_000)
     return () => clearInterval(id)
   }, [load])
 
   // Immediate reload when parent bumps refreshKey (e.g. after tool deletion)
   useEffect(() => {
-    if (refreshKey && refreshKey > 0) load()
-  }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (refreshKey && refreshKey > 0) {
+      void load()
+    }
+  }, [refreshKey, load])
 
   // Fast build manifest polling: 3s when any active builds are present
   const hasActiveBuilds = [...buildManifests.values()].some(isActiveBuild)

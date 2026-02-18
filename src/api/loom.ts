@@ -20,8 +20,19 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
 }
 
 // Chat / traces
-export async function sendPrompt(prompt: string): Promise<PromptResponse> {
-  return req<PromptResponse>('POST', '/prompt', { prompt })
+export interface SendPromptOptions {
+  workspace?: string
+  toolId?: string
+  toolName?: string
+}
+
+export async function sendPrompt(prompt: string, options?: SendPromptOptions): Promise<PromptResponse> {
+  return req<PromptResponse>('POST', '/prompt', {
+    prompt,
+    workspace: options?.workspace,
+    tool_id: options?.toolId,
+    tool_name: options?.toolName,
+  })
 }
 
 export async function getTraceStatus(traceId: string): Promise<TraceState> {

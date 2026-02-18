@@ -71,6 +71,11 @@ export interface ProjectHealthStatus {
   latency_ms: number | null
   checked_at: string | null
   error: string | null
+  history?: Array<{
+    status: 'healthy' | 'unhealthy' | 'unreachable' | 'error' | 'unknown'
+    checked_at: string
+    latency_ms?: number | null
+  }>
 }
 
 export interface SystemHealth {
@@ -104,8 +109,9 @@ export interface TraceState {
   trace_id: string
   status: TraceStatus
   action: string
-  user_prompt: string
-  plan: string
+  iteration?: number
+  user_prompt?: string
+  plan?: string
   tasks: LoomTask[]
   artifacts: Record<string, TaskArtifact>
   created_at: string
@@ -133,7 +139,7 @@ export interface TaskArtifact {
 export interface TraceHistoryEntry {
   trace_id: string
   status: TraceStatus
-  user_prompt: string
+  user_prompt?: string
   created_at: string
   updated_at: string
 }

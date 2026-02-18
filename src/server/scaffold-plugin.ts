@@ -135,7 +135,7 @@ function slugify(s: string): string {
     .slice(0, 64)
 }
 
-function generateLanternYaml(input: ScaffoldInput, _toolPath: string): string {
+function generateLanternYaml(input: ScaffoldInput): string {
   const name = slugify(input.name)
   const displayName = input.displayName || name
   const description = input.description || `${displayName} — created via GlowForge`
@@ -347,7 +347,7 @@ export function scaffoldPlugin(): Plugin {
           fs.mkdirSync(toolPath, { recursive: true })
 
           // Write lantern.yaml
-          const yamlContent = generateLanternYaml(input, toolPath)
+          const yamlContent = generateLanternYaml(input)
           const yamlPath = path.join(toolPath, 'lantern.yaml')
           fs.writeFileSync(yamlPath, yamlContent, 'utf8')
 

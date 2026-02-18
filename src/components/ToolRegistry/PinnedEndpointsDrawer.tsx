@@ -202,7 +202,11 @@ export function PinnedEndpointsDrawer() {
 
   // Load on mount and whenever drawer opens
   useEffect(() => {
-    if (open) refresh()
+    if (!open) return
+    const id = setTimeout(() => {
+      refresh()
+    }, 0)
+    return () => clearTimeout(id)
   }, [open, refresh])
 
   // Also refresh when window regains focus (user may have pinned from another tab or tool)

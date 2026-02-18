@@ -53,9 +53,16 @@ export function HealthStrip({ theme, onThemeToggle }: HealthStripProps) {
   }, [])
 
   useEffect(() => {
-    load()
-    const interval = setInterval(load, 30_000)
-    return () => clearInterval(interval)
+    const kickoff = setTimeout(() => {
+      void load()
+    }, 0)
+    const interval = setInterval(() => {
+      void load()
+    }, 30_000)
+    return () => {
+      clearTimeout(kickoff)
+      clearInterval(interval)
+    }
   }, [load])
 
   // If everything is ok and connected, render a minimal strip

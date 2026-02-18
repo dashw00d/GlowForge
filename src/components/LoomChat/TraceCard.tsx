@@ -20,13 +20,6 @@ function useRotatingVerb(action: string | undefined): string {
   const [index, setIndex] = useState(0)
   const verbs = action ? (ACTION_VERBS[action] ?? FALLBACK_VERBS) : FALLBACK_VERBS
 
-  // Reset to first verb when action changes
-  const prevAction = useRef(action)
-  if (prevAction.current !== action) {
-    prevAction.current = action
-    setIndex(0)
-  }
-
   useEffect(() => {
     if (!action || verbs.length <= 1) return
     const id = setInterval(() => setIndex((i) => (i + 1) % verbs.length), ROTATE_MS)
@@ -44,6 +37,11 @@ export function TraceCard({ traceId, prompt, onStatusChange, cancelled, onCancel
   const [rejectMessage, setRejectMessage] = useState('')
   const [showRejectInput, setShowRejectInput] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const onStatusChangeRef = useRef(onStatusChange)
+
+  useEffect(() => {
+    onStatusChangeRef.current = onStatusChange
+  }, [onStatusChange])
 
   useEffect(() => {
     if (cancelled) {
@@ -55,7 +53,7 @@ export function TraceCard({ traceId, prompt, onStatusChange, cancelled, onCancel
       try {
         const s = await getTraceStatus(traceId)
         setState(s)
-        onStatusChange?.(traceId, s.status, s.action)
+        onStatusChangeRef.current?.(traceId, s.status, s.action)
         if (TERMINAL_STATUSES.includes(s.status)) {
           if (pollRef.current) clearInterval(pollRef.current)
         }
@@ -80,7 +78,10 @@ export function TraceCard({ traceId, prompt, onStatusChange, cancelled, onCancel
   const status: TraceStatus | 'cancelled' = cancelled ? 'cancelled' : (state?.status ?? 'running')
   const isTerminal = TERMINAL_STATUSES.includes(status as TraceStatus)
   const isCancelled = status === 'cancelled'
-  const isAwaiting = status === 'awaiting_input'
+  const isAwaiting =
+    status === 'awaiting_input' ||
+    status === 'await_user' ||
+    status === 'awaiting_confirmation'
   const isRunning = !isTerminal && !isAwaiting && !isCancelled
 
   const statusVerb = useRotatingVerb(isRunning ? state?.action : undefined)
@@ -189,22 +190,6 @@ export function TraceCard({ traceId, prompt, onStatusChange, cancelled, onCancel
       {/* Body */}
       {expanded && (
         <div className="px-3 pb-3 space-y-2">
-
-          {/* Plan — shown more prominently while running */}
-          {state?.plan && (
-            <div
-              className="text-xs rounded p-2 border"
-              style={{
-                color: isRunning ? 'var(--color-text-primary)' : 'var(--color-text-secondary)',
-                backgroundColor: isRunning ? 'var(--color-surface)' : 'transparent',
-                borderColor: isRunning ? 'var(--color-accent-subtle)' : 'var(--color-border-subtle)',
-                borderLeftWidth: isRunning ? '3px' : '1px',
-                borderLeftColor: isRunning ? 'var(--color-accent)' : 'var(--color-border-subtle)',
-              }}
-            >
-              {state.plan}
-            </div>
-          )}
 
           {/* Confirmation prompt */}
           {isAwaiting && (
@@ -462,7 +447,9 @@ function StatusIcon({ status }: { status: TraceStatus | 'cancelled' | string }) 
   if (status === 'success') return <CheckCircle className="size-4 shrink-0" style={{ color: 'var(--color-green)' }} />
   if (status === 'failed' || status === 'error') return <XCircle className="size-4 shrink-0" style={{ color: 'var(--color-red)' }} />
   if (status === 'partial') return <CheckCircle className="size-4 shrink-0" style={{ color: 'var(--color-yellow)' }} />
-  if (status === 'awaiting_input') return <MessageSquare className="size-4 shrink-0" style={{ color: 'var(--color-yellow)' }} />
+  if (status === 'awaiting_input' || status === 'await_user' || status === 'awaiting_confirmation') {
+    return <MessageSquare className="size-4 shrink-0" style={{ color: 'var(--color-yellow)' }} />
+  }
   if (status === 'cancelled') return <Ban className="size-4 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
   return <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--color-accent)' }} />
 }
@@ -480,7 +467,9 @@ function TaskStatusIcon({ status }: { status: string }) {
 function statusBorderColor(status: string): string {
   if (status === 'success') return 'var(--color-green-subtle)'
   if (status === 'failed' || status === 'error') return 'var(--color-red-subtle)'
-  if (status === 'partial' || status === 'awaiting_input') return 'var(--color-yellow-subtle)'
+  if (status === 'partial' || status === 'awaiting_input' || status === 'await_user' || status === 'awaiting_confirmation') {
+    return 'var(--color-yellow-subtle)'
+  }
   if (status === 'cancelled') return 'var(--color-border-subtle)'
   return 'var(--color-border)'
 }
@@ -488,7 +477,9 @@ function statusBorderColor(status: string): string {
 function statusBgColor(status: string): string {
   if (status === 'success') return 'var(--color-green-subtle)'
   if (status === 'failed' || status === 'error') return 'var(--color-red-subtle)'
-  if (status === 'partial' || status === 'awaiting_input') return 'var(--color-yellow-subtle)'
+  if (status === 'partial' || status === 'awaiting_input' || status === 'await_user' || status === 'awaiting_confirmation') {
+    return 'var(--color-yellow-subtle)'
+  }
   if (status === 'cancelled') return 'var(--color-surface)'
   return 'var(--color-surface-raised)'
 }

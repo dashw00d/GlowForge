@@ -37,10 +37,24 @@ export interface DocFile {
   path: string
   content: string | null
   error: string | null
+  exists?: boolean
+  kind?: string
+  mtime?: string | null
+  size?: number | null
+  source?: string
 }
 
 export async function getToolDocs(id: string): Promise<DocFile[]> {
-  const r = await req<ApiResponse<{ docs: Array<{ path: string; content?: string | null; error?: string | null }> }>>(
+  const r = await req<ApiResponse<{ docs: Array<{
+    path: string
+    content?: string | null
+    error?: string | null
+    exists?: boolean
+    kind?: string
+    mtime?: string | null
+    size?: number | null
+    source?: string
+  }> }>>(
     'GET',
     `/api/tools/${encodeURIComponent(id)}/docs`
   )
@@ -48,6 +62,11 @@ export async function getToolDocs(id: string): Promise<DocFile[]> {
     path: d.path,
     content: d.content ?? null,
     error: d.error ?? null,
+    exists: d.exists,
+    kind: d.kind,
+    mtime: d.mtime ?? null,
+    size: d.size ?? null,
+    source: d.source,
   }))
 }
 
@@ -96,6 +115,10 @@ export interface LanternTemplate {
   type: string
   run_cmd: string | null
   builtin: boolean
+  features?: Record<string, unknown>
+  root?: string | null
+  run_cwd?: string
+  run_env?: Record<string, unknown>
 }
 
 export interface CreateProjectInput {

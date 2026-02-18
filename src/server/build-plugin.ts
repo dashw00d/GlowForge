@@ -123,7 +123,7 @@ export function buildPlugin(): Plugin {
         if (method === 'GET' && existsMatch) {
           const toolId = decodeURIComponent(existsMatch[1])
           const yamlPath = buildYamlPath(toolId)
-          json(res, 200, { exists: fs.existsSync(yamlPath), path: yamlPath })
+          json(res, 200, { exists: fs.existsSync(yamlPath) })
           return
         }
 
@@ -134,7 +134,7 @@ export function buildPlugin(): Plugin {
           const yamlPath = buildYamlPath(toolId)
 
           if (!fs.existsSync(yamlPath)) {
-            json(res, 404, { error: 'build.yaml not found', tool_id: toolId, path: yamlPath })
+            json(res, 404, { error: 'build.yaml not found', tool_id: toolId })
             return
           }
 

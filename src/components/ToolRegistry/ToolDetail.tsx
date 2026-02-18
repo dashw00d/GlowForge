@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star, Repeat2, History, Pencil, StickyNote } from 'lucide-react'
 import { isPinned, togglePin, pinKey } from '../../lib/pinnedEndpoints'
 import { loadNote, saveNote } from '../../lib/toolNotes'
@@ -34,10 +34,12 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
-  async function refreshHealth() {
+  const refreshHealth = useCallback(async () => {
     try {
       // Health is keyed by display name (e.g. "GhostGraph"), not lowercase id
-      const h = await getProjectHealth().then((all) => all[tool?.name ?? toolId] ?? null)
+      const all = await getProjectHealth()
+      const key = tool?.name ?? toolId
+      const h = all[key] ?? all[toolId] ?? null
       setHealth(h)
       setHealthHistory((prev) => {
         const status = h?.status ?? 'unknown'
@@ -47,7 +49,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
     } catch (e) {
       console.error('Health refresh failed:', e)
     }
-  }
+  }, [tool?.name, toolId])
 
   useEffect(() => {
     setLoading(true)
@@ -72,9 +74,11 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
 
   // Poll health every 15s while the detail panel is open
   useEffect(() => {
-    const id = setInterval(refreshHealth, 15_000)
+    const id = setInterval(() => {
+      void refreshHealth()
+    }, 15_000)
     return () => clearInterval(id)
-  }, [toolId])
+  }, [refreshHealth])
 
   async function handleToggle() {
     if (!tool) return
@@ -375,7 +379,7 @@ function OverviewTab({
   const [draft, setDraft] = useState('')
 
   const last = history.length > 0 ? history[history.length - 1] : null
-  const ageSec = last ? Math.round((Date.now() - last.ts) / 1000) : null
+  const lastUpdated = last ? relativeTime(new Date(last.ts).toISOString()) : null
 
   const STATUS_DOT: Record<ProjectHealthStatus['status'], string> = {
     healthy: 'bg-[var(--color-green)]',
@@ -409,9 +413,9 @@ function OverviewTab({
                 title={`${h.status} · ${new Date(h.ts).toLocaleTimeString()}`}
               />
             ))}
-            {ageSec != null && (
+            {lastUpdated != null && (
               <span className="text-[10px] text-[var(--color-text-muted)] ml-2">
-                updated {ageSec}s ago
+                updated {lastUpdated}
               </span>
             )}
           </div>
@@ -603,6 +607,7 @@ interface TestResponse {
 function EndpointsTab({ tool }: { tool: IToolDetail }) {
   const endpoints = [...(tool.endpoints ?? []), ...(tool.discovered_endpoints ?? [])]
   const baseUrl = tool.base_url ?? tool.upstream_url ?? ''
+  const [activeKey, setActiveKey] = useState<string | null>(null)
 
   // Pin state — mirrors localStorage, refreshes when user toggles
   const [pinnedKeys, setPinnedKeys] = useState<Set<string>>(() => new Set(
@@ -640,8 +645,6 @@ function EndpointsTab({ tool }: { tool: IToolDetail }) {
 
   const pinned = endpoints.filter((ep) => pinnedKeys.has(pinKey(tool.id, ep.method, ep.path)))
   const unpinned = endpoints.filter((ep) => !pinnedKeys.has(pinKey(tool.id, ep.method, ep.path)))
-
-  const [activeKey, setActiveKey] = useState<string | null>(null)
   const makeKey = (ep: EndpointEntry, idx: number) => `${ep.method}::${ep.path}::${idx}`
 
   return (
@@ -1087,17 +1090,33 @@ function DocsTab({ toolId, tool }: { toolId: string; tool: IToolDetail }) {
   const [selectedPath, setSelectedPath] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
-    getToolDocs(toolId)
-      .then((data) => {
-        setDocs(data)
-        // Auto-select first doc that has content
-        const first = data.find((d) => d.content)
-        if (first) setSelectedPath(first.path)
-      })
-      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load docs'))
-      .finally(() => setLoading(false))
+    let mounted = true
+
+    const kickoff = setTimeout(() => {
+      setLoading(true)
+      setError(null)
+      getToolDocs(toolId)
+        .then((data) => {
+          if (!mounted) return
+          setDocs(data)
+          // Auto-select first doc that has content
+          const first = data.find((d) => d.content)
+          if (first) setSelectedPath(first.path)
+        })
+        .catch((e) => {
+          if (!mounted) return
+          setError(e instanceof Error ? e.message : 'Failed to load docs')
+        })
+        .finally(() => {
+          if (!mounted) return
+          setLoading(false)
+        })
+    }, 0)
+
+    return () => {
+      mounted = false
+      clearTimeout(kickoff)
+    }
   }, [toolId])
 
   if (loading) {
@@ -1243,10 +1262,7 @@ function isRelevantSchedule(s: ScheduledTask, toolId: string, toolName: string):
   return (
     sid.startsWith(tid) ||
     sid.includes(tid) ||
-    (tname !== tid && sid.includes(tname)) ||
-    (s.url != null && s.url.includes(toolId)) ||
-    (s.message != null && s.message.toLowerCase().includes(toolId)) ||
-    (s.command != null && s.command.toLowerCase().includes(toolId))
+    (tname !== tid && sid.includes(tname))
   )
 }
 
@@ -1287,19 +1303,19 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
   const [formError, setFormError] = useState<string | null>(null)
   const [lastCreated, setLastCreated] = useState<string | null>(null)
 
-  const loadSchedules = () => {
+  const loadSchedules = useCallback(() => {
     setError(null)
     listSchedules()
       .then(setSchedules)
       .catch((e) => setError(e instanceof Error ? e.message : 'Loom unreachable'))
       .finally(() => setLoading(false))
-  }
+  }, [])
 
   useEffect(() => {
     setLoading(true)
     setForm(defaultForm(toolId))
     loadSchedules()
-  }, [toolId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [toolId, loadSchedules])
 
   // Update form ID when action changes to keep the suffix sensible
   function setAction(action: CreateScheduleInput['action']) {

@@ -15,6 +15,7 @@ import {
   refreshProjectDiscovery,
   listTemplates,
 } from '../../api/lantern'
+import { sendPrompt } from '../../api/loom'
 import type { LanternTemplate } from '../../api/lantern'
 import { cn } from '../../lib/utils'
 
@@ -36,6 +37,35 @@ function slugify(s: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .slice(0, 64)
+}
+
+function buildPromptForTool(input: {
+  slug: string
+  displayName: string
+  description: string
+  kind: Kind
+  template?: string
+  workspace: string
+}): string {
+  const lines = [
+    `Build the tool "${input.displayName}" in ${input.workspace}.`,
+    '',
+    'Goal:',
+    input.description || `Create a production-ready ${input.kind} implementation.`,
+    '',
+    'Requirements:',
+    '- Implement core functionality for the described tool',
+    '- Add or update API/health endpoints as needed',
+    '- Add tests or verification steps and run them',
+    '- Update README with setup and usage instructions',
+  ]
+
+  if (input.template) {
+    lines.push(`- Follow the ${input.template} template conventions`)
+  }
+
+  lines.push('', `Tool ID: ${input.slug}`)
+  return lines.join('\n')
 }
 
 const KIND_ICONS: Record<Kind, React.ReactNode> = {
@@ -140,6 +170,27 @@ export function NewToolModal({ onClose, onCreated }: Props) {
         addProgress(`✓ Discovery complete`)
       } catch {
         addProgress(`⚠ Discovery skipped (can refresh manually)`)
+      }
+
+      // Step 4: trigger Loom builder trace (best-effort)
+      addProgress('🤖 Starting Loom build trace…')
+      try {
+        const prompt = buildPromptForTool({
+          slug,
+          displayName: displayName || slug,
+          description,
+          kind,
+          template: template || undefined,
+          workspace: scaffold.path,
+        })
+        const res = await sendPrompt(prompt, {
+          workspace: scaffold.path,
+          toolId: slug,
+          toolName: displayName || slug,
+        })
+        addProgress(`✓ Loom build started (${res.trace_id.slice(0, 12)})`)
+      } catch {
+        addProgress('⚠ Loom build did not start (you can trigger it from Loom Chat)')
       }
 
       setStep('done')

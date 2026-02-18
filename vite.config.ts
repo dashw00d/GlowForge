@@ -31,6 +31,12 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/lantern-api/, ''),
       },
+      '/lantern-ws': {
+        target: 'ws://127.0.0.1:4777',
+        ws: true,
+        changeOrigin: true,
+        rewrite: (p) => p.replace(/^\/lantern-ws/, ''),
+      },
       '/loom-api': {
         target: 'http://127.0.0.1:41002',
         changeOrigin: true,

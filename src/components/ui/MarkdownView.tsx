@@ -23,7 +23,6 @@ export function MarkdownView({ content, className }: Props) {
     <div
       className={cn('markdown-body', className)}
       // Content is from local filesystem docs — local dev tool, no XSS risk
-      // eslint-disable-next-line react/no-danger
       dangerouslySetInnerHTML={{ __html: html }}
     />
   )

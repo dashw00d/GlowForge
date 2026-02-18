@@ -94,6 +94,8 @@ export function BrowserQueueDrawer() {
   const [dispatchError, setDispatchError] = useState<string | null>(null)
 
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null)
+  const tabRef = useRef<'pending' | 'results'>(tab)
+  const prevTabRef = useRef<'pending' | 'results'>(tab)
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -111,8 +113,8 @@ export function BrowserQueueDrawer() {
     }
   }, [])
 
-  const loadTabData = useCallback(async () => {
-    if (tab === 'pending') {
+  const loadTabData = useCallback(async (currentTab: 'pending' | 'results') => {
+    if (currentTab === 'pending') {
       try {
         const tasks = await getPendingTasks()
         setPendingTasks(tasks)
@@ -127,10 +129,14 @@ export function BrowserQueueDrawer() {
         // status error already shown
       }
     }
+  }, [])
+
+  useEffect(() => {
+    tabRef.current = tab
   }, [tab])
 
   const refresh = useCallback(async () => {
-    await Promise.all([loadStatus(), loadTabData()])
+    await Promise.all([loadStatus(), loadTabData(tabRef.current)])
   }, [loadStatus, loadTabData])
 
   // Poll when open
@@ -139,8 +145,10 @@ export function BrowserQueueDrawer() {
       if (pollTimer.current) clearInterval(pollTimer.current)
       return
     }
-    refresh()
-    pollTimer.current = setInterval(refresh, 5000)
+    void refresh()
+    pollTimer.current = setInterval(() => {
+      void refresh()
+    }, 5000)
     return () => {
       if (pollTimer.current) clearInterval(pollTimer.current)
     }
@@ -148,7 +156,10 @@ export function BrowserQueueDrawer() {
 
   // Reload tab data when switching tabs
   useEffect(() => {
-    if (open) loadTabData()
+    const tabChanged = prevTabRef.current !== tab
+    prevTabRef.current = tab
+    if (!open || !tabChanged) return
+    void loadTabData(tab)
   }, [tab, open, loadTabData])
 
   // Passive poll for badge (when collapsed)
@@ -193,7 +204,9 @@ export function BrowserQueueDrawer() {
       setTargetUrl('')
       setParamsJson('')
       // Refresh data after dispatch
-      setTimeout(refresh, 500)
+      setTimeout(() => {
+        void refresh()
+      }, 500)
     } catch (e) {
       setDispatchError(e instanceof Error ? e.message : 'Dispatch failed')
     } finally {
@@ -203,8 +216,13 @@ export function BrowserQueueDrawer() {
 
   async function handleClear() {
     if (!confirm('Clear all pending tasks?')) return
-    await clearQueue()
-    await refresh()
+    try {
+      setError(null)
+      await clearQueue()
+      await refresh()
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to clear queue')
+    }
   }
 
   // ── Render ──────────────────────────────────────────────────────────────────

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] build.yaml reader + types — TypeScript types, Vite plugin route, src/api/build.ts client
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -22,10 +22,10 @@
 ### Build System — Live Tool Construction (priority)
 Full spec: `docs/BUILD-SYSTEM.md`
 
-#### 1. build.yaml reader + types
-- [ ] TypeScript types — `BuildManifest`, `Phase`, `Step`, `BuildStatus`
-- [ ] `src/api/build.ts` — `fetchBuildStatus(toolId)` reads build.yaml via Lantern or Vite plugin
-- [ ] Vite plugin route — `GET /api/build/:toolId` reads `~/tools/{id}/build.yaml`, parses YAML, returns JSON
+#### 1. build.yaml reader + types ✅ `088812b`
+- [x] TypeScript types — `BuildManifest`, `Phase`, `Step`, `BuildStatus`, `BuildSummary`
+- [x] `src/api/build.ts` — `fetchBuildStatus()`, `buildSummary()`, `computeProgress()`, helpers
+- [x] Vite plugin — `GET /api/build/:toolId`, `/exists`, `/write` routes with js-yaml parsing
 
 #### 2. BuildCard component
 - [ ] `BuildCard.tsx` — compact card variant with progress bar, phase checklist, status text

@@ -1,29 +1,58 @@
 # GlowForge Handoff — Builder Mode
 
-## Current State
-- Phase 1 UI complete (7 commits)
-- Server-side browser task queue complete
-- Queue drawer, tool creation wizard, schedule toggle all done
-- **New feature: Build System** — live tool construction with build.yaml
+## Last Run (2026-02-18)
 
-## Next Task
-**build.yaml reader + types** — TypeScript types for BuildManifest, Vite plugin route to read `~/tools/{id}/build.yaml`, `src/api/build.ts` client.
+### Completed: build.yaml reader + types — `088812b`
 
-## Key Files
-- `docs/BUILD-SYSTEM.md` — full spec for the build system (READ THIS FIRST)
-- `docs/TASKS.md` — task board
-- `src/server/browser-api-plugin.ts` — reference for how to add a Vite plugin route
-- `src/components/ToolRegistry/ToolCard.tsx` — reference for BuildCard component
-- `src/components/ToolRegistry/ToolDetail.tsx` — reference for BuildDetail view
+Foundation layer for the Build System. Three new pieces:
 
-## Stack
-- React 19 + Vite + Tailwind v4 at `src/`
-- Lantern API: `http://127.0.0.1:4777`
-- Dev server: `npm run dev` at `http://localhost:5274`
+**`src/types.ts`** — New type definitions:
+- `BuildStatus` — `'pending' | 'building' | 'testing' | 'ready' | 'failed'`
+- `PhaseStatus` — `'pending' | 'in_progress' | 'done' | 'failed' | 'skipped'`
+- `BuildStep` — `{ name, status, file?, started_at?, completed_at? }`
+- `BuildPhase` — `{ id, name, status, started_at?, completed_at?, artifacts?, steps? }`
+- `BuildLogEntry` — `{ time, msg }`
+- `BuildManifest` — full build.yaml schema
+- `BuildSummary` — derived view: `{ manifest, currentPhase, currentStep, elapsedSeconds, elapsedFormatted }`
 
-## Rules
-- One task per run — finish fully
-- Real code only — no stubs, no TODOs
-- Commit every completed task
-- Write HANDOFF.md and `/compact` before finishing
-- Read `docs/BUILD-SYSTEM.md` before starting any build system task
+**`src/server/build-plugin.ts`** — Vite plugin (`GET/POST /api/build/*`):
+- `GET /api/build/:toolId` — reads `~/tools/{id}/build.yaml`, parses YAML → JSON `BuildManifest`
+- `GET /api/build/:toolId/exists` — fast probe (no parse), returns `{ exists, path }`
+- `POST /api/build/:toolId/write` — writes raw YAML (dev/test utility)
+- Path sanitization (strips non-alphanumeric except `-_`)
+- Clean 404 when build.yaml absent
+
+**`src/api/build.ts`** — Frontend client + helpers:
+- `fetchBuildStatus(toolId)` — returns `BuildManifest | null`
+- `hasBuildManifest(toolId)` — exists probe
+- `fetchBuildStatuses(toolIds[])` — parallel fetch → `Map<id, manifest>`
+- `getCurrentPhase(manifest)` — finds in_progress or first pending phase
+- `getCurrentStep(manifest)` — finds active step within active phase
+- `computeProgress(manifest)` — derives 0-1 from phases if manifest.progress is 0
+- `buildSummary(manifest)` — builds `BuildSummary` with elapsed time
+- `isActiveBuild()`, `isTerminalBuild()` — status predicates
+- `STATUS_LABELS`, `STATUS_COLORS`, `PHASE_STATUS_SYMBOL` — display constants
+
+## What's Next
+
+### BuildCard component (task 2 — do next)
+- `src/components/ToolRegistry/BuildCard.tsx`
+- Compact card variant that appears in the tool list when a build.yaml exists with status ≠ ready
+- Progress bar (uses `computeProgress()`)
+- Phase checklist (✓/◐/○/✗)
+- Visual states: ghost border (pending), pulsing glow (building), amber (testing), red (failed)
+- References `ToolCard.tsx` for sizing and style patterns
+
+### BuildDetail view (task 3 — after BuildCard)
+- Expanded view for clicking into a building tool
+- Phase list with step-level checkboxes, build log panel, prompt shown at top
+
+### Registry integration (task 4)
+- ToolList checks `hasBuildManifest()` for each tool
+- Renders BuildCard vs ToolCard based on result
+- Polls at 3s while any active builds
+
+## Project State
+- `~/tools/GlowForge/` — 19 commits total
+- All Phase 1-3 work done ✅
+- Build System: types/API done ✅ | BuildCard ⬜ | BuildDetail ⬜ | Registry integration ⬜

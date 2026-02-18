@@ -1,0 +1,28 @@
+id: glowforge
+name: GlowForge
+description: The unified interface for the tool platform. Left panel = Lantern tool registry. Center = Loom chat. Chat with Loom to orchestrate tools, build new ones, and manage schedules.
+
+kind: tool
+type: static
+
+domain: glowforge.glow
+
+run:
+  cmd: npm run dev -- --port ${PORT} --host 0.0.0.0
+  cwd: .
+
+health_endpoint: /
+
+tags: [ui, orchestration, loom, lantern, registry]
+
+docs:
+  - README.md
+
+routing:
+  triggers:
+    - glowforge
+    - tool registry
+    - loom ui
+    - chat interface
+  risk: low
+  requires_confirmation: false

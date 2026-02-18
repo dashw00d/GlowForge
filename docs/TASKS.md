@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Tool restart button — Repeat2 icon in ToolDetail header (running tools only), POST /api/projects/:name/restart, refresh state
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -64,7 +64,10 @@ Full spec: `docs/BUILD-SYSTEM.md`
 ### Completed Future Ideas (cont.)
 - [x] Pinned endpoints — star/unpin per EndpointRow, "⭐ Pinned" section at top of EndpointsTab, global PinnedEndpointsDrawer in ToolList sidebar with quick-fire — `a689e95`
 
+### Completed Future Ideas (cont.)
+- [x] Tool restart button — Repeat2 icon in ToolDetail header, running tools only, spins while restarting — `bc8fe35`
+
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
-- Tool restart button in ToolDetail (POST /api/projects/:name/restart)
 - Tool health history graph — sparkline of health check results over time
+- Multi-tool compare view — side-by-side ToolDetail panels

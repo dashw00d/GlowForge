@@ -42,8 +42,9 @@ export async function cancelTrace(traceId: string): Promise<boolean> {
 }
 
 export async function listHistory(limit = 20): Promise<TraceHistoryEntry[]> {
-  const r = await req<{ history: TraceHistoryEntry[] }>('GET', `/history?limit=${limit}`)
-  return r.history ?? []
+  // Loom /history returns { "runs": [...] } — not "history"
+  const r = await req<{ runs?: TraceHistoryEntry[]; history?: TraceHistoryEntry[] }>('GET', `/history?limit=${limit}`)
+  return r.runs ?? r.history ?? []
 }
 
 // Schedules

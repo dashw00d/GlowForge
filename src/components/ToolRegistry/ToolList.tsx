@@ -7,6 +7,7 @@ import { BuildCard } from './BuildCard'
 import { Spinner } from '../ui/Spinner'
 import { ScheduleManager } from './ScheduleManager'
 import { BrowserQueueDrawer } from './BrowserQueueDrawer'
+import { PinnedEndpointsDrawer } from './PinnedEndpointsDrawer'
 import { NewToolModal } from './NewToolModal'
 import type { ToolSummary, BuildManifest } from '../../types'
 
@@ -217,6 +218,7 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshK
       </div>
 
       {/* Schedule manager — pinned to bottom */}
+      <PinnedEndpointsDrawer />
       <ScheduleManager />
 
       {/* Browser queue drawer — below schedule manager */}

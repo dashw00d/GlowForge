@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Pinned endpoints — star button per EndpointRow, "Pinned" section in EndpointsTab, global PinnedEndpointsDrawer in ToolList, localStorage persistence
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`

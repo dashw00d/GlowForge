@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star } from 'lucide-react'
+import { isPinned, togglePin, pinKey } from '../../lib/pinnedEndpoints'
 import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, LANTERN_BASE } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
 import { listSchedules, toggleSchedule, createSchedule, deleteSchedule } from '../../api/loom'
@@ -344,9 +345,32 @@ interface TestResponse {
 
 function EndpointsTab({ tool }: { tool: IToolDetail }) {
   const endpoints = [...(tool.endpoints ?? []), ...(tool.discovered_endpoints ?? [])]
+  const baseUrl = tool.base_url ?? tool.upstream_url ?? ''
 
-  // Track which endpoint has its tester open (by index)
-  const [activeIdx, setActiveIdx] = useState<number | null>(null)
+  // Pin state — mirrors localStorage, refreshes when user toggles
+  const [pinnedKeys, setPinnedKeys] = useState<Set<string>>(() => new Set(
+    endpoints
+      .filter((ep) => isPinned(tool.id, ep.method, ep.path))
+      .map((ep) => pinKey(tool.id, ep.method, ep.path))
+  ))
+
+  function handleTogglePin(ep: EndpointEntry) {
+    const nowPinned = togglePin({
+      toolId: tool.id,
+      toolName: tool.name,
+      method: ep.method,
+      path: ep.path,
+      baseUrl,
+      description: ep.description,
+    })
+    const key = pinKey(tool.id, ep.method, ep.path)
+    setPinnedKeys((prev) => {
+      const next = new Set(prev)
+      if (nowPinned) next.add(key)
+      else next.delete(key)
+      return next
+    })
+  }
 
   if (endpoints.length === 0) {
     return (
@@ -357,17 +381,57 @@ function EndpointsTab({ tool }: { tool: IToolDetail }) {
     )
   }
 
+  const pinned = endpoints.filter((ep) => pinnedKeys.has(pinKey(tool.id, ep.method, ep.path)))
+  const unpinned = endpoints.filter((ep) => !pinnedKeys.has(pinKey(tool.id, ep.method, ep.path)))
+
+  const [activeKey, setActiveKey] = useState<string | null>(null)
+  const makeKey = (ep: EndpointEntry, idx: number) => `${ep.method}::${ep.path}::${idx}`
+
   return (
-    <div className="space-y-1.5">
-      {endpoints.map((ep, i) => (
-        <EndpointRow
-          key={i}
-          ep={ep}
-          baseUrl={tool.base_url ?? tool.upstream_url ?? ''}
-          isOpen={activeIdx === i}
-          onToggle={() => setActiveIdx((prev) => (prev === i ? null : i))}
-        />
-      ))}
+    <div className="space-y-3">
+      {/* Pinned section */}
+      {pinned.length > 0 && (
+        <div className="space-y-1.5">
+          <div className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+            <Star className="size-2.5 fill-[var(--color-yellow)] text-[var(--color-yellow)]" />
+            Pinned ({pinned.length})
+          </div>
+          {pinned.map((ep, i) => {
+            const k = `pinned-${makeKey(ep, i)}`
+            return (
+              <EndpointRow
+                key={k}
+                ep={ep}
+                baseUrl={baseUrl}
+                pinned
+                onTogglePin={() => handleTogglePin(ep)}
+                isOpen={activeKey === k}
+                onToggle={() => setActiveKey((prev) => (prev === k ? null : k))}
+              />
+            )
+          })}
+          <div
+            className="border-b mt-1"
+            style={{ borderColor: 'var(--color-border-subtle)' }}
+          />
+        </div>
+      )}
+
+      {/* All endpoints */}
+      {unpinned.map((ep, i) => {
+        const k = `all-${makeKey(ep, i)}`
+        return (
+          <EndpointRow
+            key={k}
+            ep={ep}
+            baseUrl={baseUrl}
+            pinned={false}
+            onTogglePin={() => handleTogglePin(ep)}
+            isOpen={activeKey === k}
+            onToggle={() => setActiveKey((prev) => (prev === k ? null : k))}
+          />
+        )
+      })}
     </div>
   )
 }
@@ -379,11 +443,15 @@ function EndpointRow({
   baseUrl,
   isOpen,
   onToggle,
+  pinned = false,
+  onTogglePin,
 }: {
   ep: EndpointEntry
   baseUrl: string
   isOpen: boolean
   onToggle: () => void
+  pinned?: boolean
+  onTogglePin?: () => void
 }) {
   // Form state (editable copies of the endpoint)
   const [method, setMethod] = useState(ep.method)
@@ -547,6 +615,24 @@ function EndpointRow({
           <FlaskConical className="size-2.5" />
           Test
         </button>
+
+        {/* Pin (star) button */}
+        {onTogglePin && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onTogglePin() }}
+            title={pinned ? 'Unpin endpoint' : 'Pin endpoint'}
+            className="shrink-0 p-0.5 rounded transition-colors hover:bg-[var(--color-surface-raised)]"
+          >
+            <Star
+              className={cn(
+                'size-3 transition-colors',
+                pinned
+                  ? 'fill-[var(--color-yellow)] text-[var(--color-yellow)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-yellow)]'
+              )}
+            />
+          </button>
+        )}
       </div>
 
       {/* Description */}

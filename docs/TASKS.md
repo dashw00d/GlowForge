@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] BuildDetail view — expanded right panel: phases+steps, build log, artifacts, prompt, elapsed time
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -33,13 +33,11 @@ Full spec: `docs/BUILD-SYSTEM.md`
 - [x] Progress bar — animated shine for building/testing, solid green/red for ready/failed
 - [x] Current step name shown below progress bar, phase symbols (✓/◐/○/✗)
 
-#### 3. BuildDetail view
-- [ ] `BuildDetail.tsx` — expanded view: full phase list with step-level checkboxes
-- [ ] Current step highlighted with pulse animation
-- [ ] Build log panel — monospace, auto-scroll, entries from build.yaml `log[]`
-- [ ] Original prompt shown at top
-- [ ] File artifacts as clickable links
-- [ ] Elapsed time display
+#### 3. BuildDetail view ✅ `0b68483`
+- [x] `BuildDetail.tsx` — two tabs: Overview (phases+steps) | Log (monospace auto-scroll)
+- [x] Phase accordion — open by default if in_progress/failed, step checkboxes with spinner
+- [x] Build log panel — timestamped, color-coded (green ✓, blue info, red error), auto-scroll
+- [x] Prompt bar, elapsed timer, Retry button, onReady callback, 3s polling while active
 
 #### 4. Registry integration
 - [ ] ToolList detects build.yaml on tools → renders BuildCard instead of ToolCard

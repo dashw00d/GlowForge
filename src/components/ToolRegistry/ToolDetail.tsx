@@ -323,7 +323,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
             {tab === 'endpoints' && <EndpointsTab tool={tool} />}
             {tab === 'docs' && <DocsTab toolId={toolId} tool={tool} />}
             {tab === 'schedules' && <SchedulesTab toolId={toolId} toolName={tool.name} />}
-            {tab === 'logs' && <LogsTab toolId={toolId} />}
+            {tab === 'logs' && <LogsTab toolName={tool.name} />}
             {tab === 'timeline' && <TimelineTab history={healthHistory} />}
           </div>
         </>
@@ -1817,7 +1817,11 @@ const LINE_CLASS: Record<string, string> = {
   default: 'text-[var(--color-text-secondary)]',
 }
 
-function LogsTab({ toolId }: { toolId: string }) {
+// LogsTab uses fetch+ReadableStream instead of EventSource to avoid sending
+// Accept: text/event-stream — Phoenix rejects that header with 406.
+// toolName must be the DISPLAY NAME (e.g. "Loom") since Lantern routes by name not id.
+
+function LogsTab({ toolName }: { toolName: string }) {
   const [lines, setLines] = useState<string[]>([])
   const [filter, setFilter] = useState('')
   const [connected, setConnected] = useState(false)
@@ -1826,14 +1830,13 @@ function LogsTab({ toolId }: { toolId: string }) {
 
   const containerRef = useRef<HTMLDivElement>(null)
   const atBottomRef = useRef(true)
-  const esRef = useRef<EventSource | null>(null)
+  const abortRef = useRef<AbortController | null>(null)
 
   // Auto-scroll: track whether user is near bottom
   function handleScroll() {
     const el = containerRef.current
     if (!el) return
-    const threshold = 50
-    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < threshold
+    atBottomRef.current = el.scrollHeight - el.scrollTop - el.clientHeight < 50
   }
 
   // Scroll to bottom when new lines arrive (only if at bottom)
@@ -1843,43 +1846,66 @@ function LogsTab({ toolId }: { toolId: string }) {
     }
   }, [lines])
 
-  // SSE connection
+  // Streaming connection via fetch (no Accept header sent — avoids Phoenix 406)
   useEffect(() => {
     setLines([])
     setError(null)
     setConnected(false)
 
-    const url = `${LANTERN_BASE}/api/projects/${encodeURIComponent(toolId)}/logs`
-    const es = new EventSource(url)
-    esRef.current = es
+    const url = `${LANTERN_BASE}/api/projects/${encodeURIComponent(toolName)}/logs`
+    const controller = new AbortController()
+    abortRef.current = controller
 
-    es.onopen = () => {
-      setConnected(true)
-      setError(null)
+    let active = true
+
+    async function stream() {
+      try {
+        const res = await fetch(url, { signal: controller.signal })
+        if (!res.ok || !res.body) {
+          setError(`HTTP ${res.status} — tool may be stopped or logs unavailable`)
+          return
+        }
+        setConnected(true)
+        const reader = res.body.getReader()
+        const decoder = new TextDecoder()
+        let buf = ''
+
+        while (active) {
+          const { done, value } = await reader.read()
+          if (done) break
+          buf += decoder.decode(value, { stream: true })
+          const parts = buf.split('\n')
+          buf = parts.pop() ?? ''
+          for (const part of parts) {
+            const t = part.trim()
+            if (t.startsWith('data: ')) {
+              const line = t.slice(6)
+              if (line) {
+                setLines((prev) => {
+                  const next = [...prev, line]
+                  return next.length > MAX_LOG_LINES ? next.slice(next.length - MAX_LOG_LINES) : next
+                })
+              }
+            }
+          }
+        }
+      } catch (e) {
+        if ((e as Error).name !== 'AbortError') {
+          setError(e instanceof Error ? e.message : 'Stream failed')
+        }
+      } finally {
+        if (active) setConnected(false)
+      }
     }
 
-    es.onmessage = (e) => {
-      const line = e.data as string
-      setLines((prev) => {
-        const next = [...prev, line]
-        // Trim to MAX_LOG_LINES
-        return next.length > MAX_LOG_LINES ? next.slice(next.length - MAX_LOG_LINES) : next
-      })
-    }
-
-    es.onerror = () => {
-      setConnected(false)
-      // Don't set error on first connect attempt — Lantern may return 404 for stopped tools
-      // Only set error after we've received at least one message (means we were connected)
-      es.close()
-      esRef.current = null
-    }
+    stream()
 
     return () => {
-      es.close()
-      esRef.current = null
+      active = false
+      controller.abort()
+      abortRef.current = null
     }
-  }, [toolId, revision])
+  }, [toolName, revision])
 
   function handleRefresh() {
     setRevision((v) => v + 1)

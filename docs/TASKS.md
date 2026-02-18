@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Registry integration — wire BuildCard/BuildDetail into ToolList + App, adaptive polling
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -39,11 +39,13 @@ Full spec: `docs/BUILD-SYSTEM.md`
 - [x] Build log panel — timestamped, color-coded (green ✓, blue info, red error), auto-scroll
 - [x] Prompt bar, elapsed timer, Retry button, onReady callback, 3s polling while active
 
-#### 4. Registry integration
-- [ ] ToolList detects build.yaml on tools → renders BuildCard instead of ToolCard
-- [ ] Poll build.yaml every 3s while any tool has status building/testing/pending
-- [ ] Transition animation: BuildCard → ToolCard when status hits `ready`
-- [ ] "Retry" button on failed builds
+#### 4. Registry integration ✅ `26dc8fd`
+- [x] ToolList fetches all build manifests in parallel after each tool load
+- [x] Renders BuildCard instead of ToolCard when build.yaml exists with active status
+- [x] Adaptive polling: 3s when any active builds, 10s baseline via separate effects
+- [x] App.tsx routes to BuildDetail or ToolDetail based on selectedManifest
+- [x] onReady callback clears manifest → ToolDetail takes over; Dismiss button per card
+- [x] Header shows "N building" count alongside running count
 
 #### 5. Loom builder prompt update
 - [ ] Update tool creation wizard scaffold plugin to generate initial build.yaml

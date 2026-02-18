@@ -2,68 +2,59 @@
 
 ## Last Run (2026-02-18)
 
-### Completed: BuildDetail view — `0b68483`
+### Completed: Registry integration — `26dc8fd`
 
-**`src/components/ToolRegistry/BuildDetail.tsx`** — Full right-panel view for building tools.
+The build system is now fully wired into the live UI. This was the key integration task.
 
-**Structure:**
+**`ToolList.tsx` changes:**
+- New prop: `onBuildManifestUpdate?: (manifests: Map<string, BuildManifest>) => void`
+- State: `buildManifests: Map<string, BuildManifest>`
+- `loadBuilds(toolIds[])` — fetches all build manifests in parallel via `fetchBuildStatuses()`
+- `load()` now also calls `loadBuilds()` after fetching tools
+- **Adaptive polling**: two separate `useEffect` intervals:
+  - Main: 10s (tool list refresh)
+  - Fast: 3s, only when `hasActiveBuilds` is true (auto-enables/disables)
+- Card rendering logic: `buildManifests.get(tool.id)` with `isActiveBuild()` → renders `BuildCard` instead of `ToolCard`
+- `onRetry` handler: clears the failed manifest, re-loads
+- `onDismiss` handler: removes manifest from map (user hides build card)
+- Header subtitle shows "· N building" when builds are active
+
+**`App.tsx` changes:**
+- New state: `buildManifests: Map<string, BuildManifest>`
+- `handleBuildManifestUpdate` (stable via `useCallback`) — passed to ToolList
+- Right panel conditional: `showBuildDetail = selectedManifest != null && isActiveBuild(manifest)` 
+  - True → renders `<BuildDetail toolId onClose onReady onRetry />`
+  - False → renders `<ToolDetail toolId onClose />`
+- `handleBuildReady`: clears manifest from map → panel transitions to ToolDetail automatically
+
+**Full data flow:**
 ```
-Header: [name] [Building badge] [0m 47s elapsed]  [↺ Retry?] [×]
-Prompt bar: ▎ Build me a tool that monitors RSS feeds
-Tabs: [■ Overview] [⌥ Log (12)]
-────────────────────────────────────
-Overview tab:
-  Phases (accordion):
-    ✓ Project Scaffold            ↓  (open, shows artifacts)
-      📄 lantern.yaml  📄 README.md
-    ◐ Core Implementation  2/3   ↓  (open, shows steps)
-      ☑ RSS parser module
-      ⟳ Feed polling loop   src/poller.py   ← current step (highlighted)
-      ☐ Storage layer       src/storage.py
-    ○ API Endpoints             →  (collapsed, faded)
-    ○ Testing & Verification    →
-    ○ Lantern Registration      →
-  Build Info:
-    Tool ID   rss-monitor
-    Started   10:30:00
-    Progress  35%
-
-Log tab:
-  10:30:01  Creating project scaffold        ← blue
-  10:30:05  ✓ Scaffold complete              ← green
-  10:30:06  Starting core implementation     ← blue
-  10:30:15  ✓ RSS parser module              ← green
-             ⟳ Building…
+Loom writes build.yaml → ToolList polls (3s) → fetchBuildStatuses() →
+setBuildManifests() → onBuildManifestUpdate() → App.setBuildManifests() →
+ToolCard → BuildCard (in list) + BuildDetail (in right panel)
 ```
-
-**Key features:**
-- **3s polling** while `isActiveBuild()` is true; stops on terminal state
-- **`onReady` callback** fires when status transitions to `ready` (parent swaps to ToolDetail)
-- **Phase accordion** — auto-opens `in_progress` and `failed` phases; steps show ☑/⟳/☐/⚠
-- **Log tab** — color-coded by content (✓ → green, error → red, Starting/Creating → blue), auto-scrolls to bottom on new entries
-- **Retry button** appears only on `failed` state
-- **Prompt bar** with left accent border for original user request
 
 ## What's Next
 
-### Registry integration (task 4 — do next, most impactful)
-This is the piece that wires everything together and makes it visible in the actual UI.
+### Scaffold plugin update (task 5 — last build system task)
+When a tool is created via the GlowForge wizard, also write an initial `build.yaml` with `status: pending`. This way Loom builder agents immediately have a file to update.
 
-**Changes needed in `ToolList.tsx`:**
-1. When loading tools, also check `hasBuildManifest(tool.id)` for each tool (parallel)
-2. If a tool has a build.yaml with `status !== 'ready'`, render `<BuildCard>` instead of `<ToolCard>`
-3. Poll every 3s when any active builds are present; resume normal 10s interval otherwise
-4. When user clicks a BuildCard, open `<BuildDetail>` in the right panel instead of `<ToolDetail>`
-5. `BuildDetail.onReady` → triggers refresh + swaps back to `<ToolCard>` + brief green flash
+**Changes to `src/server/scaffold-plugin.ts`:**
+1. In the `POST /api/scaffold` handler, after writing `lantern.yaml` + `README.md`, also write `build.yaml` with:
+   - `tool_id: {slug}`
+   - `name: {displayName}`
+   - `prompt: {description}` (placeholder until Loom overwrites it)
+   - `status: pending`
+   - `started_at: {now}`
+   - `progress: 0`
+   - Standard phases array (scaffold/core/api/test/register)
+   - Empty log
+2. Return `build_yaml_path` in the response
+3. The NewToolModal's "creating" step will show immediately as a build in progress
 
-**Changes needed in `App.tsx`:**
-- Pass enough state/callbacks to handle the BuildCard→ToolCard transition in the right panel
-
-**Approach:** Since both components take `toolId` as their primary prop, the right panel can conditionally render `<BuildDetail>` or `<ToolDetail>` based on whether a build manifest exists. Store a `Map<toolId, BuildManifest>` in `ToolList` state.
-
-### Scaffold plugin update (task 5)
-After registry integration, update `scaffold-plugin.ts` to generate an initial `build.yaml` when creating a tool, so Loom builder agents can start updating it immediately.
+This means when you create a tool, it appears as a BuildCard right away — Loom then updates build.yaml as it works.
 
 ## Project State
-- `~/tools/GlowForge/` — 23 commits total
-- Build System: types/API ✅ | BuildCard ✅ | BuildDetail ✅ | Registry integration ⬜ | Scaffold update ⬜
+- `~/tools/GlowForge/` — 25 commits total
+- Build System: types/API ✅ | BuildCard ✅ | BuildDetail ✅ | Registry integration ✅ | Scaffold update ⬜
+- All other phases complete ✅

@@ -94,7 +94,7 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshK
     )
   })
 
-  const running = filtered.filter((t) => t.status === 'running').length
+  const running = tools.filter((t) => t.status === 'running').length
   const building = [...buildManifests.values()].filter(isActiveBuild).length
 
   // ── Retry handler ───────────────────────────────────────────────────────────

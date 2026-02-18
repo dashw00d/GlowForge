@@ -1,31 +1,32 @@
 # GlowForge Handoff — Builder Mode
 
-## Last Run (2026-02-18 — Builder Run 3)
+## Last Run (2026-02-18 — Builder Run 4)
 
 ### Task completed
-**History drawer** — `be25460`
+**Schedule manager** — `4cee45c`
 
 ### What was built
-- `src/components/LoomChat/HistoryDrawer.tsx`
-  - Collapsible toggle row in chat panel (below header, above messages)
-  - Shows recent trace count in toggle when collapsed
-  - Expanded: scrollable list (max-h-56) of last 20 traces from `GET /history`
-  - Each row: status icon, truncated prompt, status label (colored), relative timestamp, trace_id prefix
-  - "Load" button per row — adds that trace's TraceCard to the current session
-  - Tracks already-loaded IDs (shows "loaded" text, disabled button) to prevent duplicates
-  - Refresh button in toolbar; auto-loads on open
-  - Handles Loom unreachable gracefully
-- `src/components/LoomChat/ChatPanel.tsx`
-  - Integrated HistoryDrawer just below header
-  - `handleLoadHistory` — appends history entry as a Message, scrolls to bottom
-  - `loadedIds` Set derived from current messages array, passed to drawer
+- `src/components/ToolRegistry/ScheduleManager.tsx`
+  - Collapsible section pinned to bottom of left panel (below tool list)
+  - Toggle row: shows "Schedules" + enabled/total count badge when collapsed
+  - Expanded: max-h-48 scrollable list of all schedules from `GET /schedules`
+  - Per-schedule row:
+    - **Action badge** — icon + label, color-coded by type (agent=accent, http=green, shell=yellow, prompt=accent, trace=muted)
+    - **Label** — derived from message/prompt/url/command, falls back to schedule ID
+    - **Expression** — font-mono schedule string + optional timezone
+    - **Toggle switch** — animated pill toggle, calls `PATCH /schedules/{id}`, optimistic update, disabled state while toggling
+    - Dimmed (opacity-50) when disabled
+  - Refresh button, error state, empty state
+  - Loads on open, does not poll (schedules change rarely; manual refresh available)
+- `src/components/ToolRegistry/ToolList.tsx`
+  - Added `<ScheduleManager />` at bottom of `flex flex-col h-full` layout (as pinned `shrink-0` element via border-t)
 
 ### Build
 - TypeScript: clean, Build: ✓ 1.46s
 
 ## Next task (top of backlog)
 
-**Schedule manager** — collapsible drawer at the bottom of the left panel showing Loom schedules. `GET /schedules`, list with enabled/disabled state, toggle via `PATCH /schedules/{id}`. Each row shows: schedule ID, action type, expression, enabled toggle.
+**ToolDetail docs content** — the Docs tab in ToolDetail currently just lists doc file paths. Load actual content via `GET /api/tools/:id/docs` and render it inline (markdown → formatted text). The API returns `{ docs: [{ path, content, error }] }`.
 
 ## Project state
-`~/tools/GlowForge/` — 3 commits (bdd938c → 5f62e07 → be25460), builds clean.
+`~/tools/GlowForge/` — 4 commits, builds clean. Left panel is feature-complete for MVP.

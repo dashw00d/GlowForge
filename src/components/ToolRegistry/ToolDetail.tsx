@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square } from 'lucide-react'
-import { getTool, getProjectHealth, activateTool, deactivateTool } from '../../api/lantern'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle } from 'lucide-react'
+import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs } from '../../api/lantern'
+import type { DocFile } from '../../api/lantern'
 import { Spinner } from '../ui/Spinner'
 import { StatusDot } from '../ui/StatusDot'
+import { MarkdownView } from '../ui/MarkdownView'
 import { cn } from '../../lib/utils'
 import type { ToolDetail as IToolDetail, ProjectHealthStatus } from '../../types'
 
@@ -157,7 +159,7 @@ export function ToolDetail({ toolId, onClose }: Props) {
           <div className="flex-1 overflow-y-auto p-4">
             {tab === 'overview' && <OverviewTab tool={tool} health={health} />}
             {tab === 'endpoints' && <EndpointsTab tool={tool} />}
-            {tab === 'docs' && <DocsTab tool={tool} />}
+            {tab === 'docs' && <DocsTab toolId={toolId} tool={tool} />}
           </div>
         </>
       )}
@@ -262,27 +264,118 @@ function EndpointsTab({ tool }: { tool: IToolDetail }) {
   )
 }
 
-function DocsTab({ tool }: { tool: IToolDetail }) {
-  const docs = [...(tool.docs ?? []), ...(tool.docs_available ?? [])]
-  if (docs.length === 0) {
-    return <p className="text-xs text-[var(--color-text-muted)]">No documentation files found.</p>
+function DocsTab({ toolId, tool }: { toolId: string; tool: IToolDetail }) {
+  const [docs, setDocs] = useState<DocFile[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [selectedPath, setSelectedPath] = useState<string | null>(null)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    getToolDocs(toolId)
+      .then((data) => {
+        setDocs(data)
+        // Auto-select first doc that has content
+        const first = data.find((d) => d.content)
+        if (first) setSelectedPath(first.path)
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load docs'))
+      .finally(() => setLoading(false))
+  }, [toolId])
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-xs text-[var(--color-text-muted)]">
+        <Spinner className="size-3" />
+        Loading documentation...
+      </div>
+    )
   }
-  return (
-    <div className="space-y-1">
-      {docs.map((doc, i) => (
-        <div
-          key={i}
-          className="flex items-center gap-2 py-1.5 px-2 rounded hover:bg-[var(--color-surface-raised)] transition-colors"
-        >
-          <FileText className="size-3 text-[var(--color-text-muted)] shrink-0" />
-          <span className="text-xs font-mono text-[var(--color-text-secondary)]">{doc.path}</span>
-          {doc.size != null && (
-            <span className="text-[10px] text-[var(--color-text-muted)] ml-auto">
-              {(doc.size / 1024).toFixed(1)}kb
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-[var(--color-red)]">
+        <AlertCircle className="size-3.5 shrink-0" />
+        {error}
+      </div>
+    )
+  }
+
+  // Fall back to the static doc list from the tool manifest if API returned nothing
+  const apiDocs = docs ?? []
+  const staticDocs = [...(tool.docs ?? []), ...(tool.docs_available ?? [])]
+  const hasContent = apiDocs.some((d) => d.content)
+
+  if (!hasContent && apiDocs.length === 0 && staticDocs.length === 0) {
+    return (
+      <p className="text-xs text-[var(--color-text-muted)]">No documentation files found.</p>
+    )
+  }
+
+  // If no content could be loaded (docs exist but content is null), show file list
+  if (!hasContent) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[10px] text-[var(--color-text-muted)] mb-2">
+          {apiDocs.length > 0
+            ? 'Documentation files found but content unavailable.'
+            : 'Documentation files registered:'}
+        </p>
+        {(apiDocs.length > 0 ? apiDocs : staticDocs).map((doc, i) => (
+          <div
+            key={i}
+            className="flex items-center gap-2 py-1.5 px-2 rounded bg-[var(--color-surface-raised)]"
+          >
+            <FileText className="size-3 text-[var(--color-text-muted)] shrink-0" />
+            <span className="text-[10px] font-mono text-[var(--color-text-secondary)] flex-1 truncate">
+              {'path' in doc ? doc.path : ''}
             </span>
-          )}
+            {('error' in doc) && doc.error && (
+              <span className="text-[10px] text-[var(--color-red)] shrink-0">error</span>
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  const selectedDoc = apiDocs.find((d) => d.path === selectedPath)
+
+  return (
+    <div className="flex flex-col gap-3 min-h-0">
+      {/* File selector — only show if multiple files */}
+      {apiDocs.length > 1 && (
+        <div className="flex flex-wrap gap-1">
+          {apiDocs.map((doc) => (
+            <button
+              key={doc.path}
+              onClick={() => setSelectedPath(doc.path)}
+              title={doc.path}
+              className={cn(
+                'flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono transition-colors truncate max-w-[140px]',
+                selectedPath === doc.path
+                  ? 'bg-[var(--color-accent-subtle)] text-[var(--color-accent)]'
+                  : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-raised)]',
+                !doc.content && 'opacity-40 cursor-not-allowed'
+              )}
+              disabled={!doc.content}
+            >
+              <FileText className="size-2.5 shrink-0" />
+              {doc.path.split('/').pop()}
+            </button>
+          ))}
         </div>
-      ))}
+      )}
+
+      {/* Content */}
+      {selectedDoc?.content ? (
+        <MarkdownView content={selectedDoc.content} />
+      ) : selectedDoc?.error ? (
+        <p className="text-xs text-[var(--color-red)]">{selectedDoc.error}</p>
+      ) : (
+        <p className="text-xs text-[var(--color-text-muted)]">Select a file above to view its content.</p>
+      )}
     </div>
   )
 }

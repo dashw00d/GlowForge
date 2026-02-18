@@ -32,16 +32,22 @@ export async function getTool(id: string): Promise<ToolDetail> {
   return r.data
 }
 
-export async function getToolDocs(id: string): Promise<string> {
-  const r = await req<ApiResponse<{ docs: Array<{ path: string; content?: string }> }>>(
+export interface DocFile {
+  path: string
+  content: string | null
+  error: string | null
+}
+
+export async function getToolDocs(id: string): Promise<DocFile[]> {
+  const r = await req<ApiResponse<{ docs: Array<{ path: string; content?: string | null; error?: string | null }> }>>(
     'GET',
     `/api/tools/${encodeURIComponent(id)}/docs`
   )
-  // concatenate all doc contents
-  return (r.data?.docs ?? [])
-    .map((d) => d.content ?? '')
-    .filter(Boolean)
-    .join('\n\n---\n\n')
+  return (r.data?.docs ?? []).map((d) => ({
+    path: d.path,
+    content: d.content ?? null,
+    error: d.error ?? null,
+  }))
 }
 
 // Health

@@ -132,6 +132,9 @@ async function handleRequest(
         ? (body.params as Record<string, unknown>)
         : {},
       ttl_seconds: typeof body.ttl_seconds === 'number' ? body.ttl_seconds : 300,
+      callback_url: typeof body.callback_url === 'string' ? body.callback_url : undefined,
+      source: typeof body.source === 'string' ? body.source : undefined,
+      correlation_id: typeof body.correlation_id === 'string' ? body.correlation_id : undefined,
     })
 
     json(res, 201, task)
@@ -175,11 +178,24 @@ async function handleRequest(
     return
   }
 
-  // GET /api/browser/queue/results — list recent results
+  // GET /api/browser/queue/results — list recent results (optional source filter)
   if (method === 'GET' && path === '/api/browser/queue/results') {
     const qs = new URLSearchParams(url.includes('?') ? url.split('?')[1] : '')
     const limit = Math.min(parseInt(qs.get('limit') ?? '50', 10), 200)
     json(res, 200, { results: browserQueue.listResults(limit) })
+    return
+  }
+
+  // GET /api/browser/results/:id — get single result by task_id
+  const singleResultMatch = path.match(/^\/api\/browser\/results\/([^/]+)$/)
+  if (method === 'GET' && singleResultMatch) {
+    const taskId = decodeURIComponent(singleResultMatch[1])
+    const result = browserQueue.getResult(taskId)
+    if (result) {
+      json(res, 200, result)
+    } else {
+      json(res, 404, { error: 'No result for task_id' })
+    }
     return
   }
 

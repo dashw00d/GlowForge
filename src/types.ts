@@ -157,6 +157,14 @@ export interface PromptResponse {
   status: string
 }
 
+/** Response from DELETE /traces/{id}. Loom returns HTTP 200 for any ID,
+ *  including nonexistent ones — check processes_killed to detect ghost cancels. */
+export interface CancelTraceResult {
+  trace_id: string
+  status: string          // "cancelled"
+  processes_killed: number
+}
+
 // ─── Build System Types ───────────────────────────────────────────────────────
 
 export type BuildStatus = 'pending' | 'building' | 'testing' | 'ready' | 'failed'

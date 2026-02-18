@@ -1,5 +1,5 @@
 import { getLoomBaseUrl } from './lantern'
-import type { TraceState, TraceHistoryEntry, ScheduledTask, PromptResponse } from '../types'
+import type { TraceState, TraceHistoryEntry, ScheduledTask, PromptResponse, CancelTraceResult } from '../types'
 
 async function base(): Promise<string> {
   return getLoomBaseUrl()
@@ -32,12 +32,20 @@ export async function confirmTrace(traceId: string, approved: boolean, response 
   await req('POST', `/confirm/${traceId}`, { approved, response })
 }
 
-export async function cancelTrace(traceId: string): Promise<boolean> {
+export async function cancelTrace(traceId: string): Promise<CancelTraceResult | null> {
   try {
-    await req('DELETE', `/traces/${traceId}`)
-    return true
+    const result = await req<CancelTraceResult>('DELETE', `/traces/${traceId}`)
+    // Loom returns HTTP 200 for any ID, including nonexistent ones.
+    // A processes_killed of 0 indicates a likely ghost cancel (no real trace was running).
+    if (result.processes_killed === 0) {
+      console.warn(
+        `[GlowForge] cancelTrace(${traceId}): processes_killed=0 — ` +
+        `Loom may have echo-cancelled a nonexistent trace (ghost record risk).`
+      )
+    }
+    return result
   } catch {
-    return false
+    return null
   }
 }
 

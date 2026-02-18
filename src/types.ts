@@ -141,7 +141,9 @@ export interface ScheduledTask {
   schedule: string
   action: 'agent' | 'http' | 'shell' | 'prompt' | 'trace'
   enabled: boolean
-  timezone?: string
+  enabled_override: boolean | null
+  timezone?: string | null
+  last_fired?: string | null
   message?: string
   url?: string
   command?: string

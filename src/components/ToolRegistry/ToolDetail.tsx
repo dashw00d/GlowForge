@@ -1,19 +1,20 @@
 import { useEffect, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp } from 'lucide-react'
 import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
+import { listSchedules, toggleSchedule } from '../../api/loom'
 import { Spinner } from '../ui/Spinner'
 import { StatusDot } from '../ui/StatusDot'
 import { MarkdownView } from '../ui/MarkdownView'
 import { cn } from '../../lib/utils'
-import type { ToolDetail as IToolDetail, ProjectHealthStatus } from '../../types'
+import type { ToolDetail as IToolDetail, ProjectHealthStatus, ScheduledTask } from '../../types'
 
 interface Props {
   toolId: string
   onClose: () => void
 }
 
-type Tab = 'overview' | 'endpoints' | 'docs'
+type Tab = 'overview' | 'endpoints' | 'docs' | 'schedules'
 
 export function ToolDetail({ toolId, onClose }: Props) {
   const [tool, setTool] = useState<IToolDetail | null>(null)
@@ -136,13 +137,13 @@ export function ToolDetail({ toolId, onClose }: Props) {
       {/* Tabs */}
       {tool && (
         <>
-          <div className="flex border-b border-[var(--color-border)] shrink-0">
-            {(['overview', 'endpoints', 'docs'] as Tab[]).map((t) => (
+          <div className="flex border-b border-[var(--color-border)] shrink-0 overflow-x-auto">
+            {(['overview', 'endpoints', 'docs', 'schedules'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
                 className={cn(
-                  'px-3 py-2 text-xs capitalize transition-colors',
+                  'px-3 py-2 text-xs capitalize transition-colors whitespace-nowrap',
                   tab === t
                     ? 'text-[var(--color-accent)] border-b-2 border-[var(--color-accent)]'
                     : 'text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]'
@@ -151,6 +152,7 @@ export function ToolDetail({ toolId, onClose }: Props) {
                 {t === 'overview' && <Activity className="size-3 inline mr-1" />}
                 {t === 'endpoints' && <Zap className="size-3 inline mr-1" />}
                 {t === 'docs' && <FileText className="size-3 inline mr-1" />}
+                {t === 'schedules' && <Calendar className="size-3 inline mr-1" />}
                 {t}
               </button>
             ))}
@@ -160,6 +162,7 @@ export function ToolDetail({ toolId, onClose }: Props) {
             {tab === 'overview' && <OverviewTab tool={tool} health={health} />}
             {tab === 'endpoints' && <EndpointsTab tool={tool} />}
             {tab === 'docs' && <DocsTab toolId={toolId} tool={tool} />}
+            {tab === 'schedules' && <SchedulesTab toolId={toolId} toolName={tool.name} />}
           </div>
         </>
       )}
@@ -398,6 +401,254 @@ function Row({ label, value, mono }: { label: string; value: string; mono?: bool
       <span className={cn('text-[var(--color-text-primary)] break-all', mono && 'font-mono text-[10px]')}>
         {value}
       </span>
+    </div>
+  )
+}
+
+// ─── Schedules Tab ────────────────────────────────────────────────────────────
+
+const SCHED_ACTION_ICON: Record<string, React.ReactNode> = {
+  agent:  <MessageSquare className="size-2.5" />,
+  http:   <Globe className="size-2.5" />,
+  shell:  <Terminal className="size-2.5" />,
+  prompt: <Zap className="size-2.5" />,
+  trace:  <Layers className="size-2.5" />,
+}
+
+const SCHED_ACTION_COLOR: Record<string, string> = {
+  agent:  'text-[var(--color-accent)] bg-[var(--color-accent-subtle)]',
+  http:   'text-[var(--color-green)] bg-[var(--color-green-subtle)]',
+  shell:  'text-[var(--color-yellow)] bg-[var(--color-yellow-subtle)]',
+  prompt: 'text-[var(--color-accent)] bg-[var(--color-accent-subtle)]',
+  trace:  'text-[var(--color-text-secondary)] bg-[var(--color-surface-raised)]',
+}
+
+function isRelevantSchedule(s: ScheduledTask, toolId: string, toolName: string): boolean {
+  const sid = s.id.toLowerCase()
+  const tid = toolId.toLowerCase()
+  const tname = toolName.toLowerCase().replace(/\s+/g, '-')
+  return (
+    sid.startsWith(tid) ||
+    sid.includes(tid) ||
+    (tname !== tid && sid.includes(tname)) ||
+    (s.url != null && s.url.includes(toolId)) ||
+    (s.message != null && s.message.toLowerCase().includes(toolId)) ||
+    (s.command != null && s.command.toLowerCase().includes(toolId))
+  )
+}
+
+function relativeTime(iso: string | null | undefined): string {
+  if (!iso) return 'never'
+  const secs = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000))
+  if (secs < 60) return `${secs}s ago`
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+  return `${Math.floor(secs / 86400)}d ago`
+}
+
+function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }) {
+  const [schedules, setSchedules] = useState<ScheduledTask[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [toggling, setToggling] = useState<Set<string>>(new Set())
+  const [showAll, setShowAll] = useState(false)
+
+  useEffect(() => {
+    setLoading(true)
+    setError(null)
+    listSchedules()
+      .then(setSchedules)
+      .catch((e) => setError(e instanceof Error ? e.message : 'Loom unreachable'))
+      .finally(() => setLoading(false))
+  }, [toolId])
+
+  async function handleToggle(id: string, currentEnabled: boolean) {
+    setToggling((prev) => new Set(prev).add(id))
+    try {
+      await toggleSchedule(id, !currentEnabled)
+      setSchedules((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, enabled: !currentEnabled } : s))
+      )
+    } catch (e) {
+      console.error('Toggle failed:', e)
+    } finally {
+      setToggling((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center gap-2 py-4 text-xs text-[var(--color-text-muted)]">
+        <Spinner className="size-3" />
+        Loading schedules…
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center gap-2 text-xs text-[var(--color-red)]">
+        <AlertCircle className="size-3.5 shrink-0" />
+        {error}
+      </div>
+    )
+  }
+
+  const relevant = schedules.filter((s) => isRelevantSchedule(s, toolId, toolName))
+  const others = schedules.filter((s) => !isRelevantSchedule(s, toolId, toolName))
+
+  return (
+    <div className="space-y-4">
+      {/* Relevant schedules */}
+      <Section title={`For ${toolName}`}>
+        {relevant.length === 0 ? (
+          <p className="text-xs text-[var(--color-text-muted)]">
+            No schedules matched to this tool.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {relevant.map((s) => (
+              <ScheduleRow
+                key={s.id}
+                schedule={s}
+                toggling={toggling.has(s.id)}
+                onToggle={() => handleToggle(s.id, s.enabled)}
+              />
+            ))}
+          </div>
+        )}
+      </Section>
+
+      {/* All schedules — collapsible */}
+      {schedules.length > 0 && (
+        <div>
+          <button
+            onClick={() => setShowAll((v) => !v)}
+            className="flex items-center gap-1.5 text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider mb-2 hover:text-[var(--color-text-secondary)] transition-colors"
+          >
+            {showAll ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+            All Schedules ({schedules.length})
+          </button>
+
+          {showAll && (
+            <div className="space-y-2">
+              {others.map((s) => (
+                <ScheduleRow
+                  key={s.id}
+                  schedule={s}
+                  toggling={toggling.has(s.id)}
+                  onToggle={() => handleToggle(s.id, s.enabled)}
+                  dim
+                />
+              ))}
+              {relevant.map((s) => (
+                <ScheduleRow
+                  key={`all-${s.id}`}
+                  schedule={s}
+                  toggling={toggling.has(s.id)}
+                  onToggle={() => handleToggle(s.id, s.enabled)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ScheduleRow({
+  schedule,
+  toggling,
+  onToggle,
+  dim = false,
+}: {
+  schedule: ScheduledTask
+  toggling: boolean
+  onToggle: () => void
+  dim?: boolean
+}) {
+  const label =
+    schedule.message?.slice(0, 50) ||
+    schedule.prompt?.slice(0, 50) ||
+    schedule.url?.replace(/^https?:\/\//, '').slice(0, 50) ||
+    schedule.command?.slice(0, 50) ||
+    schedule.id
+
+  const actionColor = SCHED_ACTION_COLOR[schedule.action] ?? SCHED_ACTION_COLOR.trace
+  const actionIcon = SCHED_ACTION_ICON[schedule.action] ?? <Zap className="size-2.5" />
+
+  return (
+    <div
+      className={cn(
+        'rounded-lg border p-3 transition-opacity',
+        dim && 'opacity-60',
+        schedule.enabled
+          ? 'border-[var(--color-border)]'
+          : 'border-[var(--color-border-subtle)]'
+      )}
+      style={{ backgroundColor: 'var(--color-surface-raised)' }}
+    >
+      <div className="flex items-start gap-2">
+        {/* Action badge */}
+        <span
+          className={cn(
+            'inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-medium shrink-0 mt-0.5',
+            actionColor
+          )}
+        >
+          {actionIcon}
+          {schedule.action}
+        </span>
+
+        {/* ID + label */}
+        <div className="flex-1 min-w-0">
+          <p className="text-[11px] font-medium text-[var(--color-text-primary)] truncate">
+            {schedule.id}
+          </p>
+          {label !== schedule.id && (
+            <p className="text-[10px] text-[var(--color-text-muted)] truncate mt-0.5">
+              {label}
+            </p>
+          )}
+        </div>
+
+        {/* Toggle */}
+        <button
+          onClick={onToggle}
+          disabled={toggling}
+          title={schedule.enabled ? 'Disable' : 'Enable'}
+          className={cn(
+            'shrink-0 relative inline-flex h-4 w-7 items-center rounded-full transition-colors mt-0.5',
+            toggling && 'opacity-50 cursor-wait',
+            schedule.enabled
+              ? 'bg-[var(--color-green)]'
+              : 'bg-[var(--color-border)]'
+          )}
+        >
+          <span
+            className={cn(
+              'inline-block size-3 rounded-full bg-white transition-transform',
+              schedule.enabled ? 'translate-x-3.5' : 'translate-x-0.5'
+            )}
+          />
+        </button>
+      </div>
+
+      {/* Schedule expression + last fired */}
+      <div className="flex items-center gap-3 mt-2">
+        <span className="text-[10px] font-mono text-[var(--color-text-secondary)]">
+          {schedule.schedule}
+          {schedule.timezone ? ` (${schedule.timezone})` : ''}
+        </span>
+        <span className="text-[10px] text-[var(--color-text-muted)] ml-auto">
+          last: {relativeTime(schedule.last_fired)}
+        </span>
+      </div>
     </div>
   )
 }

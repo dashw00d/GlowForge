@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Schedule toggle in ToolDetail — per-tool schedule view from Loom `/schedules`, toggle inline
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`

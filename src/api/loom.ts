@@ -35,8 +35,13 @@ export async function listHistory(limit = 20): Promise<TraceHistoryEntry[]> {
 
 // Schedules
 export async function listSchedules(): Promise<ScheduledTask[]> {
-  const r = await req<{ schedules: Record<string, ScheduledTask> }>('GET', '/schedules')
-  return Object.entries(r.schedules ?? {}).map(([id, task]) => ({ ...task, id }))
+  const r = await req<{ schedules: ScheduledTask[] | Record<string, ScheduledTask> }>('GET', '/schedules')
+  const raw = r.schedules ?? []
+  // API may return either an array (each item has .id) or a Record<id, task>
+  if (Array.isArray(raw)) {
+    return raw
+  }
+  return Object.entries(raw).map(([id, task]) => ({ ...task, id }))
 }
 
 export async function toggleSchedule(id: string, enabled: boolean): Promise<void> {

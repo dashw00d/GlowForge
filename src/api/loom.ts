@@ -91,9 +91,10 @@ export async function createSchedule(input: CreateScheduleInput): Promise<Create
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
   })
-  const data = await res.json().catch(() => ({ error: res.statusText }))
+  const data = await res.json().catch(() => ({ message: res.statusText }))
   if (!res.ok) {
-    throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+    const msg = (data as { message?: string; error?: string }).message || (data as { error?: string }).error
+    throw new Error(msg || `HTTP ${res.status}`)
   }
   return data as CreateScheduleResult
 }
@@ -104,7 +105,8 @@ export async function deleteSchedule(id: string): Promise<void> {
     method: 'DELETE',
   })
   if (!res.ok) {
-    const data = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+    const data = await res.json().catch(() => ({ message: res.statusText }))
+    const msg = (data as { message?: string; error?: string }).message || (data as { error?: string }).error
+    throw new Error(msg || `HTTP ${res.status}`)
   }
 }

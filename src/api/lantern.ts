@@ -151,8 +151,9 @@ export async function scaffoldTool(input: ScaffoldInput): Promise<ScaffoldResult
     body: JSON.stringify(input),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: res.statusText }))
-    throw new Error((err as { error?: string }).error || `Scaffold failed: HTTP ${res.status}`)
+    const err = await res.json().catch(() => ({ message: res.statusText }))
+    const msg = (err as { message?: string; error?: string }).message || (err as { error?: string }).error
+    throw new Error(msg || `Scaffold failed: HTTP ${res.status}`)
   }
   return res.json() as Promise<ScaffoldResult>
 }

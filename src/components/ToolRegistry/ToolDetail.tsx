@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check } from 'lucide-react'
 import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
-import { listSchedules, toggleSchedule } from '../../api/loom'
+import { listSchedules, toggleSchedule, createSchedule, deleteSchedule } from '../../api/loom'
+import type { CreateScheduleInput } from '../../api/loom'
 import { Spinner } from '../ui/Spinner'
 import { StatusDot } from '../ui/StatusDot'
 import { MarkdownView } from '../ui/MarkdownView'
@@ -532,21 +533,61 @@ function relativeTime(iso: string | null | undefined): string {
   return `${Math.floor(secs / 86400)}d ago`
 }
 
+// ─── Add Schedule form default state ─────────────────────────────────────────
+
+function defaultForm(toolId: string): CreateScheduleInput {
+  return {
+    id: `${toolId}-schedule`,
+    schedule: 'every 5 minutes',
+    action: 'agent',
+    message: '',
+    timezone: '',
+    enabled: true,
+  }
+}
+
 function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }) {
   const [schedules, setSchedules] = useState<ScheduledTask[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [toggling, setToggling] = useState<Set<string>>(new Set())
+  const [deleting, setDeleting] = useState<Set<string>>(new Set())
   const [showAll, setShowAll] = useState(false)
 
-  useEffect(() => {
-    setLoading(true)
+  // Add schedule form
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState<CreateScheduleInput>(() => defaultForm(toolId))
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [lastCreated, setLastCreated] = useState<string | null>(null)
+
+  const loadSchedules = () => {
     setError(null)
     listSchedules()
       .then(setSchedules)
       .catch((e) => setError(e instanceof Error ? e.message : 'Loom unreachable'))
       .finally(() => setLoading(false))
-  }, [toolId])
+  }
+
+  useEffect(() => {
+    setLoading(true)
+    setForm(defaultForm(toolId))
+    loadSchedules()
+  }, [toolId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Update form ID when action changes to keep the suffix sensible
+  function setAction(action: CreateScheduleInput['action']) {
+    setForm((prev) => ({
+      ...prev,
+      action,
+      // Reset content fields
+      message: '',
+      url: '',
+      command: '',
+      prompt: '',
+      id: prev.id.replace(/-(?:agent|http|shell|prompt)$/, '') + `-${action}`,
+    }))
+  }
 
   async function handleToggle(id: string, currentEnabled: boolean) {
     setToggling((prev) => new Set(prev).add(id))
@@ -563,6 +604,41 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
         next.delete(id)
         return next
       })
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setDeleting((prev) => new Set(prev).add(id))
+    try {
+      await deleteSchedule(id)
+      setSchedules((prev) => prev.filter((s) => s.id !== id))
+    } catch (e) {
+      console.error('Delete failed:', e)
+    } finally {
+      setDeleting((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      })
+    }
+  }
+
+  async function handleCreate(e: React.FormEvent) {
+    e.preventDefault()
+    setSubmitting(true)
+    setFormError(null)
+    try {
+      const result = await createSchedule(form)
+      setLastCreated(result.id)
+      setShowForm(false)
+      setForm(defaultForm(toolId))
+      loadSchedules()
+      // Clear success flash after 3s
+      setTimeout(() => setLastCreated(null), 3000)
+    } catch (err) {
+      setFormError(err instanceof Error ? err.message : 'Failed to create schedule')
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -587,11 +663,250 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
   const relevant = schedules.filter((s) => isRelevantSchedule(s, toolId, toolName))
   const others = schedules.filter((s) => !isRelevantSchedule(s, toolId, toolName))
 
+  const inputStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '5px 8px',
+    fontSize: '11px',
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: '5px',
+    color: 'var(--color-text-primary)',
+    outline: 'none',
+    boxSizing: 'border-box',
+  }
+
   return (
     <div className="space-y-4">
+      {/* Success flash */}
+      {lastCreated && (
+        <div
+          className="flex items-center gap-2 px-3 py-2 rounded-lg text-xs"
+          style={{ backgroundColor: 'var(--color-green-subtle)', color: 'var(--color-green)' }}
+        >
+          <Check className="size-3 shrink-0" />
+          Schedule "{lastCreated}" created — takes effect after Loom restart
+        </div>
+      )}
+
       {/* Relevant schedules */}
-      <Section title={`For ${toolName}`}>
-        {relevant.length === 0 ? (
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <h4 className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+            For {toolName}
+          </h4>
+          <button
+            onClick={() => { setShowForm((v) => !v); setFormError(null) }}
+            title="Add schedule"
+            className={cn(
+              'flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium transition-colors',
+              showForm
+                ? 'bg-[var(--color-accent)] text-white'
+                : 'text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)]'
+            )}
+          >
+            <Plus className="size-2.5" />
+            {showForm ? 'Cancel' : 'Add'}
+          </button>
+        </div>
+
+        {/* Inline "Add Schedule" form */}
+        {showForm && (
+          <form
+            onSubmit={handleCreate}
+            className="mb-3 rounded-lg border p-3 space-y-2.5"
+            style={{
+              backgroundColor: 'var(--color-surface-raised)',
+              borderColor: 'var(--color-accent)',
+              borderStyle: 'dashed',
+            }}
+          >
+            <p className="text-[10px] font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+              New Schedule
+            </p>
+
+            {/* ID */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[var(--color-text-muted)]">ID</label>
+              <input
+                value={form.id}
+                onChange={(e) => setForm((p) => ({ ...p, id: e.target.value }))}
+                placeholder="my-tool-schedule"
+                style={inputStyle}
+                required
+              />
+            </div>
+
+            {/* Action selector */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[var(--color-text-muted)]">Action</label>
+              <div className="flex gap-1 flex-wrap">
+                {(['agent', 'http', 'shell', 'prompt'] as const).map((a) => (
+                  <button
+                    key={a}
+                    type="button"
+                    onClick={() => setAction(a)}
+                    className={cn(
+                      'px-2 py-0.5 rounded text-[10px] font-medium transition-colors border',
+                      form.action === a
+                        ? 'border-[var(--color-accent)] text-[var(--color-accent)] bg-[var(--color-accent-subtle)]'
+                        : 'border-[var(--color-border)] text-[var(--color-text-muted)] hover:border-[var(--color-text-muted)]'
+                    )}
+                  >
+                    {a}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Schedule expression */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[var(--color-text-muted)]">
+                Schedule
+                <span className="ml-1 opacity-60 normal-case">
+                  (e.g. every 5 minutes, daily at 9:00, cron 0 * * * *)
+                </span>
+              </label>
+              <input
+                value={form.schedule}
+                onChange={(e) => setForm((p) => ({ ...p, schedule: e.target.value }))}
+                placeholder="every 5 minutes"
+                style={inputStyle}
+                required
+              />
+            </div>
+
+            {/* Content field — depends on action */}
+            {form.action === 'agent' && (
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--color-text-muted)]">Message</label>
+                <textarea
+                  value={form.message ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))}
+                  placeholder="What should Loom do on each run?"
+                  rows={2}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                  required
+                />
+              </div>
+            )}
+            {form.action === 'prompt' && (
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--color-text-muted)]">Prompt</label>
+                <textarea
+                  value={form.prompt ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, prompt: e.target.value }))}
+                  placeholder="Prompt to run each schedule tick"
+                  rows={2}
+                  style={{ ...inputStyle, resize: 'vertical' }}
+                  required
+                />
+              </div>
+            )}
+            {form.action === 'http' && (
+              <div className="space-y-1.5">
+                <div className="flex gap-1.5">
+                  <div className="space-y-1 w-16 shrink-0">
+                    <label className="text-[10px] text-[var(--color-text-muted)]">Method</label>
+                    <select
+                      value={form.method ?? 'GET'}
+                      onChange={(e) => setForm((p) => ({ ...p, method: e.target.value }))}
+                      style={{ ...inputStyle, appearance: 'none' }}
+                    >
+                      <option>GET</option>
+                      <option>POST</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1 flex-1">
+                    <label className="text-[10px] text-[var(--color-text-muted)]">URL</label>
+                    <input
+                      value={form.url ?? ''}
+                      onChange={(e) => setForm((p) => ({ ...p, url: e.target.value }))}
+                      placeholder="https://..."
+                      style={inputStyle}
+                      required
+                      type="url"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            {form.action === 'shell' && (
+              <div className="space-y-1">
+                <label className="text-[10px] text-[var(--color-text-muted)]">Command</label>
+                <input
+                  value={form.command ?? ''}
+                  onChange={(e) => setForm((p) => ({ ...p, command: e.target.value }))}
+                  placeholder="curl -s http://..."
+                  style={{ ...inputStyle, fontFamily: 'monospace' }}
+                  required
+                />
+              </div>
+            )}
+
+            {/* Timezone */}
+            <div className="space-y-1">
+              <label className="text-[10px] text-[var(--color-text-muted)]">
+                Timezone <span className="opacity-60">(optional)</span>
+              </label>
+              <input
+                value={form.timezone ?? ''}
+                onChange={(e) => setForm((p) => ({ ...p, timezone: e.target.value }))}
+                placeholder="America/Chicago"
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Enabled toggle */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setForm((p) => ({ ...p, enabled: !p.enabled }))}
+                className={cn(
+                  'relative inline-flex h-4 w-7 items-center rounded-full transition-colors',
+                  form.enabled ? 'bg-[var(--color-green)]' : 'bg-[var(--color-border)]'
+                )}
+              >
+                <span
+                  className={cn(
+                    'inline-block size-3 rounded-full bg-white transition-transform',
+                    form.enabled ? 'translate-x-3.5' : 'translate-x-0.5'
+                  )}
+                />
+              </button>
+              <span className="text-[10px] text-[var(--color-text-muted)]">
+                {form.enabled ? 'Enabled' : 'Disabled'}
+              </span>
+            </div>
+
+            {/* Form error */}
+            {formError && (
+              <p className="text-[10px] text-[var(--color-red)]">{formError}</p>
+            )}
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={submitting}
+              className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded text-xs font-medium transition-opacity disabled:opacity-50"
+              style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+            >
+              {submitting ? (
+                <>
+                  <Spinner className="size-3" />
+                  Creating…
+                </>
+              ) : (
+                <>
+                  <Plus className="size-3" />
+                  Create Schedule
+                </>
+              )}
+            </button>
+          </form>
+        )}
+
+        {/* Matched schedule list */}
+        {relevant.length === 0 && !showForm ? (
           <p className="text-xs text-[var(--color-text-muted)]">
             No schedules matched to this tool.
           </p>
@@ -602,12 +917,14 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
                 key={s.id}
                 schedule={s}
                 toggling={toggling.has(s.id)}
+                deleting={deleting.has(s.id)}
                 onToggle={() => handleToggle(s.id, s.enabled)}
+                onDelete={() => handleDelete(s.id)}
               />
             ))}
           </div>
         )}
-      </Section>
+      </div>
 
       {/* All schedules — collapsible */}
       {schedules.length > 0 && (
@@ -627,7 +944,9 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
                   key={s.id}
                   schedule={s}
                   toggling={toggling.has(s.id)}
+                  deleting={deleting.has(s.id)}
                   onToggle={() => handleToggle(s.id, s.enabled)}
+                  onDelete={() => handleDelete(s.id)}
                   dim
                 />
               ))}
@@ -636,7 +955,9 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
                   key={`all-${s.id}`}
                   schedule={s}
                   toggling={toggling.has(s.id)}
+                  deleting={deleting.has(s.id)}
                   onToggle={() => handleToggle(s.id, s.enabled)}
+                  onDelete={() => handleDelete(s.id)}
                 />
               ))}
             </div>
@@ -650,14 +971,20 @@ function SchedulesTab({ toolId, toolName }: { toolId: string; toolName: string }
 function ScheduleRow({
   schedule,
   toggling,
+  deleting,
   onToggle,
+  onDelete,
   dim = false,
 }: {
   schedule: ScheduledTask
   toggling: boolean
+  deleting?: boolean
   onToggle: () => void
+  onDelete?: () => void
   dim?: boolean
 }) {
+  const [confirmDelete, setConfirmDelete] = useState(false)
+
   const label =
     schedule.message?.slice(0, 50) ||
     schedule.prompt?.slice(0, 50) ||
@@ -673,6 +1000,7 @@ function ScheduleRow({
       className={cn(
         'rounded-lg border p-3 transition-opacity',
         dim && 'opacity-60',
+        deleting && 'opacity-40',
         schedule.enabled
           ? 'border-[var(--color-border)]'
           : 'border-[var(--color-border-subtle)]'
@@ -706,11 +1034,11 @@ function ScheduleRow({
         {/* Toggle */}
         <button
           onClick={onToggle}
-          disabled={toggling}
+          disabled={toggling || deleting}
           title={schedule.enabled ? 'Disable' : 'Enable'}
           className={cn(
             'shrink-0 relative inline-flex h-4 w-7 items-center rounded-full transition-colors mt-0.5',
-            toggling && 'opacity-50 cursor-wait',
+            (toggling || deleting) && 'opacity-50 cursor-wait',
             schedule.enabled
               ? 'bg-[var(--color-green)]'
               : 'bg-[var(--color-border)]'
@@ -723,6 +1051,38 @@ function ScheduleRow({
             )}
           />
         </button>
+
+        {/* Delete button / confirm */}
+        {onDelete && (
+          confirmDelete ? (
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                onClick={() => { onDelete(); setConfirmDelete(false) }}
+                disabled={deleting}
+                className="px-1.5 py-0.5 rounded text-[9px] font-medium"
+                style={{ backgroundColor: 'var(--color-red)', color: '#fff' }}
+              >
+                {deleting ? '…' : 'Delete'}
+              </button>
+              <button
+                onClick={() => setConfirmDelete(false)}
+                className="px-1.5 py-0.5 rounded text-[9px]"
+                style={{ color: 'var(--color-text-muted)', backgroundColor: 'var(--color-surface)' }}
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmDelete(true)}
+              title="Delete schedule"
+              disabled={deleting}
+              className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-red)] hover:bg-[var(--color-red-subtle)] transition-colors shrink-0 mt-0.5"
+            >
+              <Trash2 className="size-3" />
+            </button>
+          )
+        )}
       </div>
 
       {/* Schedule expression + last fired */}

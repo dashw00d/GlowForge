@@ -5,6 +5,7 @@ import path from 'path'
 import { browserQueuePlugin } from './src/server/browser-api-plugin.js'
 import { scaffoldPlugin } from './src/server/scaffold-plugin.js'
 import { buildPlugin } from './src/server/build-plugin.js'
+import { schedulesPlugin } from './src/server/schedules-plugin.js'
 
 export default defineConfig({
   plugins: [
@@ -13,6 +14,7 @@ export default defineConfig({
     browserQueuePlugin(),
     scaffoldPlugin(),
     buildPlugin(),
+    schedulesPlugin(),
   ],
   resolve: {
     alias: {

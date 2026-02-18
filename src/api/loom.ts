@@ -47,3 +47,50 @@ export async function listSchedules(): Promise<ScheduledTask[]> {
 export async function toggleSchedule(id: string, enabled: boolean): Promise<void> {
   await req('PATCH', `/schedules/${encodeURIComponent(id)}`, { enabled })
 }
+
+// ─── Schedule CRUD (via GlowForge Vite plugin — writes to schedules.yaml) ────
+
+export interface CreateScheduleInput {
+  id: string
+  schedule: string
+  action: 'agent' | 'http' | 'shell' | 'prompt'
+  message?: string
+  url?: string
+  command?: string
+  prompt?: string
+  timezone?: string
+  enabled?: boolean
+  timeout?: number
+  method?: string
+}
+
+export interface CreateScheduleResult {
+  ok: boolean
+  id: string
+  entry: Record<string, unknown>
+}
+
+/** Create a new schedule entry in schedules.yaml via the GlowForge Vite plugin. */
+export async function createSchedule(input: CreateScheduleInput): Promise<CreateScheduleResult> {
+  const res = await fetch('/api/schedules', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  const data = await res.json().catch(() => ({ error: res.statusText }))
+  if (!res.ok) {
+    throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+  }
+  return data as CreateScheduleResult
+}
+
+/** Delete a schedule entry from schedules.yaml via the GlowForge Vite plugin. */
+export async function deleteSchedule(id: string): Promise<void> {
+  const res = await fetch(`/api/schedules/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  })
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error((data as { error?: string }).error || `HTTP ${res.status}`)
+  }
+}

@@ -883,6 +883,6 @@ Reads `result["data"]["items"]` — implicit contract with extension's `task-exe
 3. **C3** — `ArtifactBlock` string assumption (prevents runtime crash on completed traces) ✅ FIXED 7ddcfa3
 4. **C4** — `ToolDetail` health lookup key (health panel has been broken since first deploy) ✅ FIXED 7a2a685
 5. **H3** — `GLOWFORGE_URL` default in twitter-intel (connection refused at runtime) ✅ FIXED ef26283 (twitter-intel repo)
-6. **H2** — `buildYamlPath()` case sensitivity (build system broken for 3/9 tools)
+6. **H2** — `buildYamlPath()` case sensitivity (build system broken for 3/9 tools) ✅ FIXED de73878
 7. **H1** — ENDPOINTS.md write route correction (document the `/write` suffix)
 8. **C5 / H5** — Loom field mismatches (requires Loom-side changes or type corrections)

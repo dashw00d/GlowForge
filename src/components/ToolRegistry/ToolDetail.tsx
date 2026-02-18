@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star, Repeat2 } from 'lucide-react'
 import { isPinned, togglePin, pinKey } from '../../lib/pinnedEndpoints'
-import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, LANTERN_BASE } from '../../api/lantern'
+import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, restartTool, LANTERN_BASE } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
 import { listSchedules, toggleSchedule, createSchedule, deleteSchedule } from '../../api/loom'
 import type { CreateScheduleInput } from '../../api/loom'
@@ -27,6 +27,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
   const [toggling, setToggling] = useState(false)
+  const [restarting, setRestarting] = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
@@ -65,6 +66,26 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   }
 
   const isRunning = tool?.status === 'running'
+
+  async function handleRestart() {
+    if (!tool) return
+    setRestarting(true)
+    try {
+      await restartTool(toolId)
+      // Brief pause — give the service a moment to restart before polling state
+      await new Promise((r) => setTimeout(r, 1200))
+      const [t, h] = await Promise.all([
+        getTool(toolId),
+        getProjectHealth().then((all) => all[toolId] ?? null),
+      ])
+      setTool(t)
+      setHealth(h)
+    } catch (e) {
+      console.error('Restart failed:', e)
+    } finally {
+      setRestarting(false)
+    }
+  }
 
   async function handleDelete() {
     setDeleteState('deleting')
@@ -176,6 +197,26 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
                     <Play className="size-3" />
                   )}
                   {isRunning ? 'Stop' : 'Start'}
+                </button>
+              )}
+
+              {/* Restart button — only when tool is running */}
+              {tool && isRunning && (
+                <button
+                  onClick={handleRestart}
+                  disabled={restarting || toggling}
+                  title="Restart tool"
+                  className={cn(
+                    'p-1 rounded transition-colors',
+                    restarting
+                      ? 'text-[var(--color-accent)] cursor-wait'
+                      : 'text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)]'
+                  )}
+                >
+                  {restarting
+                    ? <Repeat2 className="size-3.5 animate-spin" />
+                    : <Repeat2 className="size-3.5" />
+                  }
                 </button>
               )}
 

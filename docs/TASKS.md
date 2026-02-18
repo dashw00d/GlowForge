@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Tool deletion — Trash button in ToolDetail header with inline confirm → `DELETE /api/projects/:name` → deselect + refresh
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -50,6 +50,9 @@ Full spec: `docs/BUILD-SYSTEM.md`
 #### 5. Loom builder prompt update ✅ `ecbb38a`
 - [x] Update tool creation wizard scaffold plugin to generate initial build.yaml
 - [x] Document build.yaml update pattern for Loom builder agents (`docs/LOOM-BUILDER.md`)
+
+### Completed Future Ideas
+- [x] Tool deletion — trash button in ToolDetail header with inline confirm, DELETE /api/projects/:name — `af8d327`
 
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard

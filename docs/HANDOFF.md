@@ -2,67 +2,63 @@
 
 ## Last Run (2026-02-18)
 
-### Completed: Scaffold generates initial build.yaml — `ecbb38a`
+### Completed: Tool deletion — `af8d327`
 
-The last build system task is done. The tool creation wizard now writes `build.yaml`
-immediately on scaffold, so new tools appear as BuildCards in the registry right away.
+Trash button added to the ToolDetail header with a clean inline confirmation flow.
+Deleting unregisters the tool from Lantern and immediately clears the selection +
+refreshes the tool list.
 
 **Changes:**
 
-**`src/server/scaffold-plugin.ts`:**
-- New `generateBuildYaml(input, slug)` function — produces a complete `build.yaml`
-  with `status: pending`, ISO `started_at`, `progress: 0`, all 5 standard phases
-  (scaffold/core/api/test/register), and a seed log entry
-- Route handler now writes `build.yaml` to `~/tools/{name}/build.yaml` after README.md
-- Response includes `build_yaml_path` (the full path written)
-
 **`src/api/lantern.ts`:**
-- `ScaffoldResult.build_yaml_path?: string` added to the type
+- `deleteProject(id: string): Promise<void>` — `DELETE /api/projects/:name`
 
-**`src/components/ToolRegistry/NewToolModal.tsx`:**
-- Creation progress now shows `📋 Build manifest created (pending — will appear as BuildCard in registry)` if `scaffold.build_yaml_path` is present
+**`src/components/ToolRegistry/ToolDetail.tsx`:**
+- New prop: `onDeleted?: () => void`
+- New state: `deleteState: 'idle' | 'confirm' | 'deleting'` and `deleteError: string | null`
+- New `handleDelete()` async function — calls `deleteProject(toolId)` → `onDeleted?.()`
+- Header reworked with three render modes:
+  - `idle`: Start/Stop button + 🗑 trash icon button (hover → red)
+  - `confirm`: "Delete?" text + Cancel + Delete buttons (replacing controls)
+  - `deleting`: spinner + "Deleting…" text
+- Error banner: renders between header and tabs if delete fails (dismissable)
 
-**`docs/LOOM-BUILDER.md` (new):**
-- Complete reference for Loom builder agents:
-  - Status lifecycle (`pending → building → testing → ready`)
-  - Full build.yaml schema with annotated examples
-  - Update protocol (what to do after every phase/step)
-  - Progress calculation formula + worked examples
-  - Minimal start template (first thing agent does)
-  - Resume-on-failure pattern
-  - GlowForge API endpoints for reading/writing
+**`src/App.tsx`:**
+- New state: `toolRefreshKey: number`
+- `onDeleted` handler: clears selection, removes manifest from buildManifests, bumps refreshKey
+- Passes `refreshKey={toolRefreshKey}` to ToolList
 
-## Build System — Fully Complete ✅
+**`src/components/ToolRegistry/ToolList.tsx`:**
+- New prop: `refreshKey?: number`
+- Extra `useEffect` — calls `load()` immediately when `refreshKey` changes (>0)
+- This gives instant list refresh after deletion vs. waiting up to 10s for next poll
 
-All 5 build system tasks are done:
-1. ✅ `088812b` — build.yaml reader + types
-2. ✅ `f0f88ca` — BuildCard component
-3. ✅ `0b68483` — BuildDetail view
-4. ✅ `26dc8fd` — Registry integration
-5. ✅ `ecbb38a` — Scaffold plugin update + Loom docs
+**UX flow:**
+1. User clicks 🗑 → controls swap to "Delete? [Cancel] [Delete]"
+2. User clicks Delete → spinner appears, `deleteProject()` fires
+3. On success → `onDeleted()` → panel closes, list refreshes immediately
+4. On failure → error banner appears in panel, controls restore to idle
 
 ## What's Next
 
-The backlog only has **Future Ideas** left — nothing urgent. Possible next tasks:
+Remaining Future Ideas (pick any):
 
-### Candidate next tasks
-1. **Schedule creation UI** — form to add a new schedule from ToolDetail (currently only toggle exists)
-2. **Tool deletion** — remove button with Lantern `DELETE /api/projects/:name` + confirmation
-3. **Log viewer tab in ToolDetail** — tail journalctl/process logs for running services
-4. **Chat → wizard integration** — "build me a tool called X" pre-fills the new tool form
-5. **Build.yaml write API auth** — add a simple token or localhost-only guard to `POST /api/build/:toolId/write`
+1. **Schedule creation UI** — form in ToolDetail schedules tab to add a new cron schedule
+   - Loom API: likely `POST /api/schedules` with id/action/schedule/message
+   - UI: collapsible "Add Schedule" form below the existing schedule list
+   - Fields: id, action type, cron expression, message/URL/command
 
-### Or declare v1 done
-All planned features are implemented. GlowForge has:
-- ✅ Two-column layout with health strip
-- ✅ Tool registry with search, ToolDetail, docs tab, schedules tab
-- ✅ New tool wizard with scaffolding + Lantern registration
-- ✅ Live build system (BuildCard, BuildDetail, registry integration)
-- ✅ Loom chat panel with trace history, keyboard shortcuts
-- ✅ Schedule manager with live toggle
-- ✅ Browser task queue with extension integration
+2. **Log viewer tab in ToolDetail** — tail journalctl/process logs
+   - New "Logs" tab in ToolDetail
+   - Vite plugin endpoint: `GET /api/logs/:toolId?lines=200` (shells out to journalctl)
+   - Terminal-style monospace panel with auto-scroll, filter input
+
+3. **Chat → wizard integration** — "build me X" pre-fills wizard
+   - Parse Loom chat output for tool creation intents
+   - Pre-fill NewToolModal with name/description from chat context
 
 ## Project State
-- `~/tools/GlowForge/` — 26 commits total
-- All original tasks from TASKS.md: **DONE**
-- Build system: **DONE** (all 5 phases)
+- `~/tools/GlowForge/` — 28 commits total
+- All original TASKS.md items: **DONE**
+- Build system: **DONE**
+- Tool deletion: **DONE**

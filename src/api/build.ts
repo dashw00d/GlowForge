@@ -42,12 +42,27 @@ export async function hasBuildManifest(toolId: string): Promise<boolean> {
 /**
  * Fetch multiple tools' build manifests in parallel.
  * Returns a map of toolId → BuildManifest (omitting nulls).
+ *
+ * Uses /exists probe first to avoid 404 console spam for tools without build.yaml.
  */
 export async function fetchBuildStatuses(
   toolIds: string[]
 ): Promise<Map<string, BuildManifest>> {
+  // Step 1: probe existence for all tools (returns {exists: bool} with 200, never 404)
+  const existResults = await Promise.allSettled(
+    toolIds.map(async (id) => ({ id, exists: await hasBuildManifest(id) }))
+  )
+
+  // Only fetch full status for tools that have a build.yaml
+  const withManifest = existResults
+    .filter((r) => r.status === 'fulfilled' && r.value.exists)
+    .map((r) => (r as PromiseFulfilledResult<{ id: string; exists: boolean }>).value.id)
+
+  if (withManifest.length === 0) return new Map()
+
+  // Step 2: fetch full manifests only where they exist
   const results = await Promise.allSettled(
-    toolIds.map(async (id) => {
+    withManifest.map(async (id) => {
       const manifest = await fetchBuildStatus(id)
       return { id, manifest }
     })

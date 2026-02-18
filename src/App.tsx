@@ -10,6 +10,8 @@ import type { BuildManifest } from './types'
 export default function App() {
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null)
   const [buildManifests, setBuildManifests] = useState<Map<string, BuildManifest>>(new Map())
+  // Bump to force ToolList to reload immediately (e.g. after tool deletion)
+  const [toolRefreshKey, setToolRefreshKey] = useState(0)
 
   // Stable callback passed to ToolList — updates parent's copy of build manifests
   const handleBuildManifestUpdate = useCallback((manifests: Map<string, BuildManifest>) => {
@@ -56,6 +58,7 @@ export default function App() {
             selectedId={selectedToolId}
             onSelect={(id) => setSelectedToolId((prev) => (prev === id ? null : id))}
             onBuildManifestUpdate={handleBuildManifestUpdate}
+            refreshKey={toolRefreshKey}
           />
         </aside>
 
@@ -87,6 +90,19 @@ export default function App() {
               <ToolDetail
                 toolId={selectedToolId}
                 onClose={() => setSelectedToolId(null)}
+                onDeleted={() => {
+                  // Clear selection and any build manifest for this tool
+                  const deletedId = selectedToolId
+                  setSelectedToolId(null)
+                  if (deletedId) {
+                    setBuildManifests((prev) => {
+                      const next = new Map(prev)
+                      next.delete(deletedId)
+                      return next
+                    })
+                  }
+                  setToolRefreshKey((k) => k + 1)
+                }}
               />
             )}
           </aside>

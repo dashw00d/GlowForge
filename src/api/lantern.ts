@@ -74,6 +74,11 @@ export async function restartTool(id: string): Promise<void> {
   await req('POST', `/api/projects/${encodeURIComponent(id)}/restart`)
 }
 
+/** Unregister a project from Lantern. Does NOT delete files on disk. */
+export async function deleteProject(id: string): Promise<void> {
+  await req('DELETE', `/api/projects/${encodeURIComponent(id)}`)
+}
+
 // Resolve Loom base URL via Lantern
 let _loomBaseUrl: string | null = null
 let _loomBaseUrlFetchedAt = 0

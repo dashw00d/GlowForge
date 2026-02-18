@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Tool deletion — Trash button in ToolDetail header with inline confirm → `DELETE /api/projects/:name` → deselect + refresh
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -54,5 +54,4 @@ Full spec: `docs/BUILD-SYSTEM.md`
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
 - Schedule creation UI — form to add a new schedule from ToolDetail
-- Tool deletion — remove button with Lantern `DELETE /api/projects/:name`
 - Log viewer tab in ToolDetail — tail journalctl for running services

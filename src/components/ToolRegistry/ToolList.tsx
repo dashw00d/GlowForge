@@ -15,9 +15,11 @@ interface Props {
   onSelect: (id: string) => void
   /** Called whenever build manifest state changes — lets App.tsx decide which detail panel to show */
   onBuildManifestUpdate?: (manifests: Map<string, BuildManifest>) => void
+  /** Bump this number to trigger an immediate tool list reload (e.g. after deletion). */
+  refreshKey?: number
 }
 
-export function ToolList({ selectedId, onSelect, onBuildManifestUpdate }: Props) {
+export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshKey }: Props) {
   const [tools, setTools] = useState<ToolSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -64,6 +66,11 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate }: Props)
     const id = setInterval(load, 10_000)
     return () => clearInterval(id)
   }, [load])
+
+  // Immediate reload when parent bumps refreshKey (e.g. after tool deletion)
+  useEffect(() => {
+    if (refreshKey && refreshKey > 0) load()
+  }, [refreshKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fast build manifest polling: 3s when any active builds are present
   const hasActiveBuilds = [...buildManifests.values()].some(isActiveBuild)

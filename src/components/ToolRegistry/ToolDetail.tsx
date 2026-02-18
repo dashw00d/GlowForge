@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp } from 'lucide-react'
-import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs } from '../../api/lantern'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2 } from 'lucide-react'
+import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
 import { listSchedules, toggleSchedule } from '../../api/loom'
 import { Spinner } from '../ui/Spinner'
@@ -12,16 +12,21 @@ import type { ToolDetail as IToolDetail, ProjectHealthStatus, ScheduledTask } fr
 interface Props {
   toolId: string
   onClose: () => void
+  onDeleted?: () => void
 }
 
 type Tab = 'overview' | 'endpoints' | 'docs' | 'schedules'
 
-export function ToolDetail({ toolId, onClose }: Props) {
+type DeleteState = 'idle' | 'confirm' | 'deleting'
+
+export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   const [tool, setTool] = useState<IToolDetail | null>(null)
   const [health, setHealth] = useState<ProjectHealthStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
   const [toggling, setToggling] = useState(false)
+  const [deleteState, setDeleteState] = useState<DeleteState>('idle')
+  const [deleteError, setDeleteError] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -58,6 +63,18 @@ export function ToolDetail({ toolId, onClose }: Props) {
   }
 
   const isRunning = tool?.status === 'running'
+
+  async function handleDelete() {
+    setDeleteState('deleting')
+    setDeleteError(null)
+    try {
+      await deleteProject(toolId)
+      onDeleted?.()
+    } catch (e) {
+      setDeleteError(e instanceof Error ? e.message : 'Delete failed')
+      setDeleteState('idle')
+    }
+  }
 
   return (
     <div className="flex flex-col h-full border-l border-[var(--color-border)] bg-[var(--color-surface)]">
@@ -104,27 +121,75 @@ export function ToolDetail({ toolId, onClose }: Props) {
         </div>
 
         <div className="flex items-center gap-1 shrink-0 ml-2">
-          {tool && (
-            <button
-              onClick={handleToggle}
-              disabled={toggling}
-              className={cn(
-                'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors',
-                isRunning
-                  ? 'bg-[var(--color-red-subtle)] text-[var(--color-red)] hover:bg-[var(--color-red)] hover:text-white'
-                  : 'bg-[var(--color-green-subtle)] text-[var(--color-green)] hover:bg-[var(--color-green)] hover:text-white'
-              )}
-            >
-              {toggling ? (
-                <Spinner className="size-3" />
-              ) : isRunning ? (
-                <Square className="size-3" />
-              ) : (
-                <Play className="size-3" />
-              )}
-              {isRunning ? 'Stop' : 'Start'}
-            </button>
+          {/* Delete confirmation inline UI */}
+          {deleteState === 'confirm' && (
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] text-[var(--color-text-muted)] mr-1 whitespace-nowrap">
+                Delete?
+              </span>
+              <button
+                onClick={() => { setDeleteState('idle'); setDeleteError(null) }}
+                className="px-2 py-0.5 rounded text-[10px] transition-colors"
+                style={{ backgroundColor: 'var(--color-surface-raised)', color: 'var(--color-text-muted)' }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                className="px-2 py-0.5 rounded text-[10px] font-medium transition-colors"
+                style={{ backgroundColor: 'var(--color-red)', color: '#fff' }}
+              >
+                Delete
+              </button>
+            </div>
           )}
+
+          {/* Deleting spinner */}
+          {deleteState === 'deleting' && (
+            <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+              <Spinner className="size-3" />
+              Deleting…
+            </div>
+          )}
+
+          {/* Normal controls — hidden while confirming/deleting */}
+          {deleteState === 'idle' && (
+            <>
+              {tool && (
+                <button
+                  onClick={handleToggle}
+                  disabled={toggling}
+                  className={cn(
+                    'flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-medium transition-colors',
+                    isRunning
+                      ? 'bg-[var(--color-red-subtle)] text-[var(--color-red)] hover:bg-[var(--color-red)] hover:text-white'
+                      : 'bg-[var(--color-green-subtle)] text-[var(--color-green)] hover:bg-[var(--color-green)] hover:text-white'
+                  )}
+                >
+                  {toggling ? (
+                    <Spinner className="size-3" />
+                  ) : isRunning ? (
+                    <Square className="size-3" />
+                  ) : (
+                    <Play className="size-3" />
+                  )}
+                  {isRunning ? 'Stop' : 'Start'}
+                </button>
+              )}
+
+              {/* Trash button — only when tool is loaded */}
+              {tool && (
+                <button
+                  onClick={() => setDeleteState('confirm')}
+                  title="Delete tool"
+                  className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-red)] hover:bg-[var(--color-red-subtle)] transition-colors"
+                >
+                  <Trash2 className="size-3.5" />
+                </button>
+              )}
+            </>
+          )}
+
           <button
             onClick={onClose}
             className="p-1 rounded text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-surface-raised)] transition-colors"
@@ -133,6 +198,27 @@ export function ToolDetail({ toolId, onClose }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Delete error banner */}
+      {deleteError && (
+        <div
+          className="flex items-center gap-2 px-4 py-2 text-xs border-b"
+          style={{
+            backgroundColor: 'var(--color-red-subtle)',
+            borderColor: 'var(--color-red)',
+            color: 'var(--color-red)',
+          }}
+        >
+          <AlertCircle className="size-3 shrink-0" />
+          <span className="flex-1">{deleteError}</span>
+          <button
+            onClick={() => setDeleteError(null)}
+            className="shrink-0 opacity-70 hover:opacity-100"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      )}
 
       {/* Tabs */}
       {tool && (

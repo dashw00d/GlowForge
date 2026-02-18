@@ -54,7 +54,9 @@ Full spec: `docs/BUILD-SYSTEM.md`
 ### Completed Future Ideas
 - [x] Tool deletion — trash button in ToolDetail header with inline confirm, DELETE /api/projects/:name — `af8d327`
 - [x] Schedule creation UI — collapsible "Add" form in Schedules tab, delete per row, Vite plugin POST/DELETE to schedules.yaml — `a8ae6ea`
+- [x] Log viewer tab — SSE streaming from Lantern /api/projects/:name/logs, filter, line coloring, auto-scroll — `fadd514`
 
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
-- Log viewer tab in ToolDetail — tail journalctl for running services
+- Tool restart button in ToolDetail (POST /api/projects/:name/restart)
+- Endpoint testing — click an endpoint in the Endpoints tab to fire a test request

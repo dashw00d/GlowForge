@@ -2,82 +2,69 @@
 
 ## Last Run (2026-02-18)
 
-### Completed: Schedule creation UI — `a8ae6ea`
+### Completed: Log viewer tab — `fadd514`
 
-Full schedule CRUD from within GlowForge — create and delete schedules directly from
-the ToolDetail Schedules tab. Changes take effect after Loom restart.
+A new "Logs" tab in ToolDetail that streams live process output from Lantern's SSE
+endpoint. No new Vite plugin needed — Lantern already exposes
+`GET /api/projects/:name/logs` as a `text/event-stream`.
 
-**Why a Vite plugin?**
-Loom's API only supports `PATCH /schedules/:id` (toggle). Creating/deleting requires
-direct file access. The schedules-plugin handles it the same way build-plugin does for
-build.yaml.
+**Key discovery:**
+Lantern's project logs endpoint was already there — just undiscovered. The format
+is standard SSE: each line arrives as `data: <log text>\n\n`. The `EventSource` browser
+API handles it natively.
 
 **Changes:**
 
-**`src/server/schedules-plugin.ts`** (new):
-- `POST /api/schedules` — validates input, writes new entry to `schedules.yaml`
-- `DELETE /api/schedules/:id` — removes entry from `schedules.yaml`
-- Path: `$LOOM_SCHEDULES_PATH` or `~/tools/Loom/schedules.yaml`
-- Uses js-yaml for parse/dump; writes clean block YAML
-- Validates: id (slugified), schedule (required), action (one of agent/http/shell/prompt/trace)
-- Action-specific validation: agent needs message, http needs url, shell needs command
+**`src/api/lantern.ts`:**
+- Export `LANTERN_BASE = 'http://127.0.0.1:4777'` — used by LogsTab to build the SSE URL
 
-**`vite.config.ts`**:
-- Added `schedulesPlugin()` import and usage
+**`src/components/ToolRegistry/ToolDetail.tsx`:**
+- Tab type extended: `'overview' | 'endpoints' | 'docs' | 'schedules' | 'logs'`
+- Import: `useRef`, `ScrollText`, `RefreshCw`, `Search` added
+- Tab bar: "Logs" tab with `<ScrollText />` icon
+- `classifyLine(line)` — regex-based classifier: error/warn/debug/success/default
+- `LINE_CLASS` map — color tokens per classification
+- `LogsTab({ toolId })` component:
+  - `EventSource` opened to `${LANTERN_BASE}/api/projects/${toolId}/logs`
+  - `useRef` tracking `atBottomRef` — auto-scroll only when user is at bottom
+  - `onScroll` handler updates `atBottomRef` (within 50px of bottom = "at bottom")
+  - `useEffect` auto-scrolls after each new line batch (if `atBottomRef.current`)
+  - Reconnect via `revision` state — bumping triggers `useEffect` cleanup + restart
+  - Lines capped at `MAX_LOG_LINES = 500` (trim from top)
+  - Toolbar: live/offline dot badge, filter input (clear X), line count, Clear, Refresh
+  - Empty state: icon + message when not connected + 0 lines
+  - Log output: 380px fixed-height scrollable monospace panel
 
-**`src/api/loom.ts`**:
-- `createSchedule(input: CreateScheduleInput): Promise<CreateScheduleResult>` — POST to Vite plugin
-- `deleteSchedule(id: string): Promise<void>` — DELETE to Vite plugin
-- `CreateScheduleInput` type: id, schedule, action, message?, url?, command?, prompt?, timezone?, enabled?, timeout?, method?
-
-**`src/components/ToolRegistry/ToolDetail.tsx`**:
-- `SchedulesTab` fully rewritten with:
-  - `showForm` state — collapsible form toggled by "Add" button in section header
-  - `defaultForm(toolId)` helper — pre-fills id as `{toolId}-schedule`, action=agent, enabled=true
-  - `setAction()` — updates form action + auto-renames ID suffix + resets content fields
-  - `handleCreate()` — calls createSchedule(), reloads list, shows 3s success flash
-  - `handleDelete()` — calls deleteSchedule(), removes from local state
-  - Form fields: ID (editable), action buttons (agent/http/shell/prompt), schedule expr with hint,
-    content field (Message/Prompt/URL+Method/Command depending on action), timezone, enabled toggle
-  - Success flash: green bar "created — takes effect after Loom restart"
-  - Error display below submit button
-- `ScheduleRow` gets `deleting?` + `onDelete?` props:
-  - Trash icon button (right of toggle) → inline confirm: [Delete] [✕]
-  - Row fades to 40% opacity while deleting
-
-## UX Flow
-
-**Create schedule:**
-1. Open ToolDetail → Schedules tab
-2. Click "Add" button → dashed form appears
-3. Fill in ID (pre-populated), select action, enter schedule expression
-4. Enter content (message/URL/command/prompt depending on action)
-5. Submit → schedule written to schedules.yaml
-6. Success flash appears, list refreshes, form hides
-
-**Delete schedule:**
-1. Hover schedule row → 🗑 icon appears
-2. Click → [Delete] [✕] confirm buttons appear
-3. Click Delete → row fades, schedule removed from file, row disappears
+**Line coloring:**
+| Classification | Pattern | Color |
+|---|---|---|
+| error | error/exception/traceback/critical/fatal/fail | red |
+| warn | warn/warning/caution/deprecated | amber |
+| debug | debug | muted |
+| success | success/✓/complete/started/ready/running/ok | green |
+| default | everything else | text-secondary |
 
 ## What's Next
 
 Remaining Future Ideas:
 
-1. **Log viewer tab in ToolDetail** — tail journalctl/process logs
-   - New "Logs" tab in ToolDetail
-   - Vite plugin: `GET /api/logs/:toolId?lines=200` → shells out to `journalctl -u {toolId} -n 200`
-   - Or read service log files directly from the tool dir
-   - Terminal-style monospace panel with auto-scroll, keyword highlighting, filter input
+1. **Tool restart button** — `POST /api/projects/:name/restart` — one-click restart in ToolDetail
+   header (already in lantern.ts as `restartTool()`, just needs a button in the header UI)
+   Very quick to add.
 
-2. **Chat → wizard integration** — "build me X" pre-fills wizard
-   - Parse Loom trace output for tool creation intents
-   - Pre-fill NewToolModal name/description from chat context
-   - Would need to identify creation-intent responses in TraceCard
+2. **Endpoint tester** — click any endpoint in the Endpoints tab to fire a test request
+   - Show a small form: method (pre-filled), path, optional body
+   - Fire via Lantern proxy or direct to the tool's upstream URL
+   - Show response: status, headers, body (collapsible JSON)
+
+3. **Chat integration** — "build me a tool called X" pre-fills wizard
+   - Would need to detect creation-intent from TraceCard output
+   - More complex, lower value
 
 ## Project State
-- `~/tools/GlowForge/` — 30 commits total
+- `~/tools/GlowForge/` — 32 commits total
 - All original TASKS.md items: **DONE**
-- Build system: **DONE**
+- All build system tasks: **DONE**
 - Tool deletion: **DONE**
 - Schedule creation/deletion: **DONE**
+- Log viewer: **DONE**

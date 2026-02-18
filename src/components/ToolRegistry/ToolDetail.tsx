@@ -77,9 +77,9 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
     setToggling(true)
     try {
       if (tool.status === 'running') {
-        await deactivateTool(toolId)
+        await deactivateTool(tool.name)
       } else {
-        await activateTool(toolId)
+        await activateTool(tool.name)
       }
       const [t, h] = await Promise.all([
         getTool(toolId),
@@ -98,7 +98,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
     if (!tool) return
     setRestarting(true)
     try {
-      await restartTool(toolId)
+      await restartTool(tool.name)
       // Brief pause — give the service a moment to restart before polling state
       await new Promise((r) => setTimeout(r, 1200))
       const [t, h] = await Promise.all([
@@ -118,7 +118,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
     setDeleteState('deleting')
     setDeleteError(null)
     try {
-      await deleteProject(toolId)
+      await deleteProject(tool?.name ?? toolId)
       onDeleted?.()
     } catch (e) {
       setDeleteError(e instanceof Error ? e.message : 'Delete failed')

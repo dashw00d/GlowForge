@@ -62,22 +62,25 @@ export async function getSystemHealth(): Promise<SystemHealth> {
   return r.data
 }
 
-// Lifecycle
-export async function activateTool(id: string): Promise<void> {
-  await req('POST', `/api/projects/${encodeURIComponent(id)}/activate`)
+// Lifecycle — NOTE: Lantern's /api/projects/:name routes match by DISPLAY NAME
+// (e.g. "Loom", "GhostGraph") NOT by id (e.g. "loom", "ghostgraph")
+// Always pass `tool.name` not `tool.id` to these functions.
+export async function activateTool(name: string): Promise<void> {
+  await req('POST', `/api/projects/${encodeURIComponent(name)}/activate`)
 }
 
-export async function deactivateTool(id: string): Promise<void> {
-  await req('POST', `/api/projects/${encodeURIComponent(id)}/deactivate`)
+export async function deactivateTool(name: string): Promise<void> {
+  await req('POST', `/api/projects/${encodeURIComponent(name)}/deactivate`)
 }
 
-export async function restartTool(id: string): Promise<void> {
-  await req('POST', `/api/projects/${encodeURIComponent(id)}/restart`)
+export async function restartTool(name: string): Promise<void> {
+  await req('POST', `/api/projects/${encodeURIComponent(name)}/restart`)
 }
 
-/** Unregister a project from Lantern. Does NOT delete files on disk. */
-export async function deleteProject(id: string): Promise<void> {
-  await req('DELETE', `/api/projects/${encodeURIComponent(id)}`)
+/** Unregister a project from Lantern. Does NOT delete files on disk.
+ *  Pass the display name (e.g. "Loom"), not the id (e.g. "loom"). */
+export async function deleteProject(name: string): Promise<void> {
+  await req('DELETE', `/api/projects/${encodeURIComponent(name)}`)
 }
 
 // Resolve Loom base URL via Vite proxy

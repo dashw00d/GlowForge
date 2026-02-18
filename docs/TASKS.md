@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Dark/light theme toggle — CSS variable override, localStorage persistence, Sun/Moon button in HealthStrip
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -58,8 +58,10 @@ Full spec: `docs/BUILD-SYSTEM.md`
 - [x] Endpoint tester — inline FlaskConical test form per endpoint, method/path/query/body/headers, response status+headers+body+copy — `5992f01`
 - [x] Browser queue callbacks — callback_url, source, correlation_id fields; GET /api/browser/results/:id; fire-and-forget webhooks — `33083e1`
 
+### Completed Future Ideas (cont.)
+- [x] Dark/light theme toggle — `.light` CSS var overrides, localStorage, Sun/Moon in HealthStrip — `9b7cdbe`
+
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
 - Tool restart button in ToolDetail (POST /api/projects/:name/restart)
 - Pinned endpoints — star/bookmark endpoints for quick access across tools
-- Dark/light theme toggle in header

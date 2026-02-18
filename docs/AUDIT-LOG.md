@@ -885,4 +885,4 @@ Reads `result["data"]["items"]` — implicit contract with extension's `task-exe
 5. **H3** — `GLOWFORGE_URL` default in twitter-intel (connection refused at runtime) ✅ FIXED ef26283 (twitter-intel repo)
 6. **H2** — `buildYamlPath()` case sensitivity (build system broken for 3/9 tools) ✅ FIXED de73878
 7. **H1** — ENDPOINTS.md write route correction (document the `/write` suffix) ✅ FIXED 50c3159
-8. **C5 / H5** — Loom field mismatches (requires Loom-side changes or type corrections)
+8. **C5 / H5** — Loom field mismatches (requires Loom-side changes or type corrections) ✅ FIXED 781ce06

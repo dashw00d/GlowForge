@@ -1,11 +1,12 @@
 import { useState, useEffect, useRef } from 'react'
-import { Bot, AlertCircle } from 'lucide-react'
-import { sendPrompt } from '../../api/loom'
+import { Bot, AlertCircle, Trash2 } from 'lucide-react'
+import { sendPrompt, cancelTrace } from '../../api/loom'
+import { loadSession, saveSession, clearSession } from '../../lib/loomSession'
 import { ChatInput } from './ChatInput'
 import type { ChatInputHandle } from './ChatInput'
 import { TraceCard } from './TraceCard'
-import { HistoryDrawer } from './HistoryDrawer'
-import type { TraceHistoryEntry } from '../../types'
+import { JobPanel } from './JobPanel'
+import type { TraceHistoryEntry, TraceStatus } from '../../types'
 
 interface Message {
   id: string
@@ -14,11 +15,18 @@ interface Message {
 }
 
 export function ChatPanel() {
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>(() => loadSession().messages as Message[])
+  const [cancelledIds, setCancelledIds] = useState<Set<string>>(() => new Set(loadSession().cancelledIds))
+  const [statusMap, setStatusMap] = useState<Record<string, { status: TraceStatus; action?: string }>>({})
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
   const chatInputRef = useRef<ChatInputHandle>(null)
   const loadedIds = new Set(messages.map((m) => m.traceId))
+
+  // Persist on change
+  useEffect(() => {
+    saveSession(messages, [...cancelledIds])
+  }, [messages, cancelledIds])
 
   // Global keyboard shortcut: '/' or Cmd+K focuses the chat input
   useEffect(() => {
@@ -72,8 +80,23 @@ export function ChatPanel() {
         traceId: entry.trace_id,
       },
     ])
-    // Scroll to bottom after a tick
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: 'smooth' }), 50)
+  }
+
+  function handleStatusChange(traceId: string, status: TraceStatus, action?: string) {
+    setStatusMap((prev) => ({ ...prev, [traceId]: { status, action } }))
+  }
+
+  async function handleCancel(traceId: string) {
+    setCancelledIds((prev) => new Set(prev).add(traceId))
+    cancelTrace(traceId).catch(() => {})
+  }
+
+  function handleClearSession() {
+    setMessages([])
+    setCancelledIds(new Set())
+    setStatusMap({})
+    clearSession()
   }
 
   return (
@@ -87,7 +110,21 @@ export function ChatPanel() {
         <h2 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
           Loom Chat
         </h2>
-        <span className="ml-auto flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+        <span className="ml-auto flex items-center gap-2 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+          {messages.length > 0 && (
+            <button
+              onClick={handleClearSession}
+              title="Clear session"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded border transition-colors hover:border-[var(--color-red)] hover:text-[var(--color-red)]"
+              style={{
+                borderColor: 'var(--color-border)',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              <Trash2 className="size-2.5" />
+              Clear
+            </button>
+          )}
           <kbd
             onClick={() => chatInputRef.current?.focus()}
             className="cursor-pointer px-1.5 py-0.5 rounded font-mono border transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
@@ -102,8 +139,14 @@ export function ChatPanel() {
         </span>
       </div>
 
-      {/* History drawer — collapsible, sits just below header */}
-      <HistoryDrawer onLoad={handleLoadHistory} loadedIds={loadedIds} />
+      {/* Job panel — collapsible, sits just below header */}
+      <JobPanel
+        messages={messages}
+        statusMap={statusMap}
+        cancelledIds={cancelledIds}
+        onCancel={handleCancel}
+        onLoadHistory={handleLoadHistory}
+      />
 
       {/* Messages */}
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
@@ -147,7 +190,14 @@ export function ChatPanel() {
         )}
 
         {messages.map((msg) => (
-          <TraceCard key={msg.id} traceId={msg.traceId} prompt={msg.prompt} />
+          <TraceCard
+            key={msg.id}
+            traceId={msg.traceId}
+            prompt={msg.prompt}
+            onStatusChange={handleStatusChange}
+            cancelled={cancelledIds.has(msg.traceId)}
+            onCancel={() => handleCancel(msg.traceId)}
+          />
         ))}
 
         {error && (

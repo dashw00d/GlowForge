@@ -1,29 +1,62 @@
 import { useEffect, useState, useRef } from 'react'
-import { CheckCircle, XCircle, Loader2, Clock, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react'
-import { getTraceStatus } from '../../api/loom'
+import { CheckCircle, XCircle, Loader2, Clock, ChevronDown, ChevronUp, Copy, Check, ThumbsUp, ThumbsDown, MessageSquare, X, Ban } from 'lucide-react'
+import { getTraceStatus, confirmTrace } from '../../api/loom'
 import { cn } from '../../lib/utils'
+import { ACTION_VERBS, FALLBACK_VERBS, TERMINAL_STATUSES } from './statusUtils'
 import type { TraceState, TraceStatus } from '../../types'
 
 interface Props {
   traceId: string
   prompt: string
+  onStatusChange?: (traceId: string, status: TraceStatus, action?: string) => void
+  cancelled?: boolean
+  onCancel?: () => void
 }
 
-const TERMINAL: TraceStatus[] = ['success', 'partial', 'failed', 'error']
 const POLL_MS = 1500
+const ROTATE_MS = 3000
 
-export function TraceCard({ traceId, prompt }: Props) {
+function useRotatingVerb(action: string | undefined): string {
+  const [index, setIndex] = useState(0)
+  const verbs = action ? (ACTION_VERBS[action] ?? FALLBACK_VERBS) : FALLBACK_VERBS
+
+  // Reset to first verb when action changes
+  const prevAction = useRef(action)
+  if (prevAction.current !== action) {
+    prevAction.current = action
+    setIndex(0)
+  }
+
+  useEffect(() => {
+    if (!action || verbs.length <= 1) return
+    const id = setInterval(() => setIndex((i) => (i + 1) % verbs.length), ROTATE_MS)
+    return () => clearInterval(id)
+  }, [action, verbs.length])
+
+  return verbs[index % verbs.length]
+}
+
+export function TraceCard({ traceId, prompt, onStatusChange, cancelled, onCancel }: Props) {
   const [state, setState] = useState<TraceState | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [expanded, setExpanded] = useState(true)
+  const [expanded, setExpanded] = useState(() => !cancelled)
+  const [confirmLoading, setConfirmLoading] = useState(false)
+  const [rejectMessage, setRejectMessage] = useState('')
+  const [showRejectInput, setShowRejectInput] = useState(false)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
+    if (cancelled) {
+      if (pollRef.current) clearInterval(pollRef.current)
+      return
+    }
+
     async function poll() {
       try {
         const s = await getTraceStatus(traceId)
         setState(s)
-        if (TERMINAL.includes(s.status)) {
+        onStatusChange?.(traceId, s.status, s.action)
+        if (TERMINAL_STATUSES.includes(s.status)) {
           if (pollRef.current) clearInterval(pollRef.current)
         }
       } catch (e) {
@@ -37,11 +70,43 @@ export function TraceCard({ traceId, prompt }: Props) {
     return () => {
       if (pollRef.current) clearInterval(pollRef.current)
     }
-  }, [traceId])
+  }, [traceId, cancelled])
 
-  const status = state?.status ?? 'running'
-  const isTerminal = TERMINAL.includes(status)
-  const isRunning = !isTerminal
+  // Auto-collapse when cancelled
+  useEffect(() => {
+    if (cancelled) setExpanded(false)
+  }, [cancelled])
+
+  const status: TraceStatus | 'cancelled' = cancelled ? 'cancelled' : (state?.status ?? 'running')
+  const isTerminal = TERMINAL_STATUSES.includes(status as TraceStatus)
+  const isCancelled = status === 'cancelled'
+  const isAwaiting = status === 'awaiting_input'
+  const isRunning = !isTerminal && !isAwaiting && !isCancelled
+
+  const statusVerb = useRotatingVerb(isRunning ? state?.action : undefined)
+  const doneCount = state?.tasks?.filter((t) => {
+    const s = state.artifacts?.[t.task_id]?.status ?? t.status
+    return s === 'done'
+  }).length ?? 0
+  const taskProgress = state?.action === 'implement' && state.tasks?.length
+    ? ` (${doneCount}/${state.tasks.length})`
+    : ''
+
+  const showCancelButton = !isTerminal && !isCancelled && onCancel
+
+  async function handleConfirm(approved: boolean, response = '') {
+    setConfirmLoading(true)
+    try {
+      await confirmTrace(traceId, approved, response)
+      setShowRejectInput(false)
+      setRejectMessage('')
+      // Resume polling — graph will continue
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Confirm failed')
+    } finally {
+      setConfirmLoading(false)
+    }
+  }
 
   return (
     <div
@@ -52,47 +117,74 @@ export function TraceCard({ traceId, prompt }: Props) {
       }}
     >
       {/* Header — click to collapse */}
-      <button
-        className="w-full flex items-center gap-2.5 px-3 py-2.5 text-left"
-        onClick={() => setExpanded((v) => !v)}
-      >
-        <StatusIcon status={status} />
-        <div className="flex-1 min-w-0">
-          <p
-            className="text-sm truncate"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            {prompt}
-          </p>
-          <p
-            className="text-[10px] mt-0.5 font-mono"
+      <div className="flex items-center">
+        <button
+          className="flex-1 flex items-center gap-2.5 px-3 py-2.5 text-left min-w-0"
+          onClick={() => setExpanded((v) => !v)}
+        >
+          <StatusIcon status={status} />
+          <div className="flex-1 min-w-0">
+            <p
+              className="text-sm truncate"
+              style={{ color: isCancelled ? 'var(--color-text-muted)' : 'var(--color-text-primary)' }}
+            >
+              {prompt}
+            </p>
+            <p
+              className="text-[10px] mt-0.5 font-mono"
+              style={{ color: 'var(--color-text-muted)' }}
+            >
+              {traceId.slice(0, 16)}
+              {isCancelled && (
+                <span className="ml-2" style={{ color: 'var(--color-text-muted)' }}>
+                  cancelled
+                </span>
+              )}
+              {isAwaiting && (
+                <span
+                  className="ml-2"
+                  style={{ color: 'var(--color-yellow)' }}
+                >
+                  awaiting approval
+                </span>
+              )}
+              {isRunning && (
+                <span
+                  className="ml-2 animate-pulse"
+                  style={{ color: 'var(--color-accent)' }}
+                >
+                  {statusVerb}…{taskProgress}
+                </span>
+              )}
+              {isTerminal && (
+                <span
+                  className="ml-2"
+                  style={{ color: statusTextColor(status) }}
+                >
+                  {status}
+                </span>
+              )}
+            </p>
+          </div>
+          {expanded ? (
+            <ChevronUp className="size-3.5 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
+          ) : (
+            <ChevronDown className="size-3.5 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
+          )}
+        </button>
+        {showCancelButton && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onCancel!() }}
+            title="Cancel trace"
+            className="shrink-0 mr-2 p-1 rounded transition-colors hover:bg-[var(--color-surface)]"
             style={{ color: 'var(--color-text-muted)' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = 'var(--color-red)' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = 'var(--color-text-muted)' }}
           >
-            {traceId.slice(0, 16)}
-            {isRunning && (
-              <span
-                className="ml-2 animate-pulse"
-                style={{ color: 'var(--color-accent)' }}
-              >
-                {state?.action ?? 'running'}…
-              </span>
-            )}
-            {isTerminal && (
-              <span
-                className="ml-2"
-                style={{ color: statusTextColor(status) }}
-              >
-                {status}
-              </span>
-            )}
-          </p>
-        </div>
-        {expanded ? (
-          <ChevronUp className="size-3.5 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
-        ) : (
-          <ChevronDown className="size-3.5 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
+            <X className="size-3.5" />
+          </button>
         )}
-      </button>
+      </div>
 
       {/* Body */}
       {expanded && (
@@ -111,6 +203,97 @@ export function TraceCard({ traceId, prompt }: Props) {
               }}
             >
               {state.plan}
+            </div>
+          )}
+
+          {/* Confirmation prompt */}
+          {isAwaiting && (
+            <div
+              className="rounded-lg border p-3 space-y-2"
+              style={{
+                borderColor: 'var(--color-yellow)',
+                backgroundColor: 'var(--color-yellow-subtle)',
+              }}
+            >
+              <p className="text-xs font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                Loom is waiting for your approval to proceed.
+              </p>
+              {!showRejectInput ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleConfirm(true)}
+                    disabled={confirmLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                    style={{
+                      backgroundColor: 'var(--color-green)',
+                      color: '#fff',
+                      opacity: confirmLoading ? 0.6 : 1,
+                    }}
+                  >
+                    <ThumbsUp className="size-3" />
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => setShowRejectInput(true)}
+                    disabled={confirmLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium border transition-colors"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-secondary)',
+                    }}
+                  >
+                    <ThumbsDown className="size-3" />
+                    Reject
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5">
+                    <MessageSquare className="size-3" style={{ color: 'var(--color-text-muted)' }} />
+                    <span className="text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+                      Why? (optional)
+                    </span>
+                  </div>
+                  <input
+                    type="text"
+                    value={rejectMessage}
+                    onChange={(e) => setRejectMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleConfirm(false, rejectMessage)
+                      if (e.key === 'Escape') setShowRejectInput(false)
+                    }}
+                    placeholder="e.g. use a different approach..."
+                    autoFocus
+                    className="w-full text-xs px-2 py-1.5 rounded border outline-none"
+                    style={{
+                      borderColor: 'var(--color-border)',
+                      backgroundColor: 'var(--color-surface)',
+                      color: 'var(--color-text-primary)',
+                    }}
+                  />
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => handleConfirm(false, rejectMessage)}
+                      disabled={confirmLoading}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-medium transition-colors"
+                      style={{
+                        backgroundColor: 'var(--color-red)',
+                        color: '#fff',
+                        opacity: confirmLoading ? 0.6 : 1,
+                      }}
+                    >
+                      Reject
+                    </button>
+                    <button
+                      onClick={() => setShowRejectInput(false)}
+                      className="text-xs px-2 py-1.5"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -272,10 +455,12 @@ function ArtifactBlock({ output }: { output: string }) {
 
 // ── Icons ─────────────────────────────────────────────────
 
-function StatusIcon({ status }: { status: TraceStatus | string }) {
+function StatusIcon({ status }: { status: TraceStatus | 'cancelled' | string }) {
   if (status === 'success') return <CheckCircle className="size-4 shrink-0" style={{ color: 'var(--color-green)' }} />
   if (status === 'failed' || status === 'error') return <XCircle className="size-4 shrink-0" style={{ color: 'var(--color-red)' }} />
   if (status === 'partial') return <CheckCircle className="size-4 shrink-0" style={{ color: 'var(--color-yellow)' }} />
+  if (status === 'awaiting_input') return <MessageSquare className="size-4 shrink-0" style={{ color: 'var(--color-yellow)' }} />
+  if (status === 'cancelled') return <Ban className="size-4 shrink-0" style={{ color: 'var(--color-text-muted)' }} />
   return <Loader2 className="size-4 shrink-0 animate-spin" style={{ color: 'var(--color-accent)' }} />
 }
 
@@ -292,14 +477,16 @@ function TaskStatusIcon({ status }: { status: string }) {
 function statusBorderColor(status: string): string {
   if (status === 'success') return 'var(--color-green-subtle)'
   if (status === 'failed' || status === 'error') return 'var(--color-red-subtle)'
-  if (status === 'partial') return 'var(--color-yellow-subtle)'
+  if (status === 'partial' || status === 'awaiting_input') return 'var(--color-yellow-subtle)'
+  if (status === 'cancelled') return 'var(--color-border-subtle)'
   return 'var(--color-border)'
 }
 
 function statusBgColor(status: string): string {
   if (status === 'success') return 'var(--color-green-subtle)'
   if (status === 'failed' || status === 'error') return 'var(--color-red-subtle)'
-  if (status === 'partial') return 'var(--color-yellow-subtle)'
+  if (status === 'partial' || status === 'awaiting_input') return 'var(--color-yellow-subtle)'
+  if (status === 'cancelled') return 'var(--color-surface)'
   return 'var(--color-surface-raised)'
 }
 
@@ -307,5 +494,6 @@ function statusTextColor(status: string): string {
   if (status === 'success') return 'var(--color-green)'
   if (status === 'failed' || status === 'error') return 'var(--color-red)'
   if (status === 'partial') return 'var(--color-yellow)'
+  if (status === 'cancelled') return 'var(--color-text-muted)'
   return 'var(--color-accent)'
 }

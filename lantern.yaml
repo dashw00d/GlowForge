@@ -3,7 +3,7 @@ name: GlowForge
 description: The unified interface for the tool platform. Left panel = Lantern tool registry. Center = Loom chat. Chat with Loom to orchestrate tools, build new ones, and manage schedules.
 
 kind: tool
-type: static
+type: proxy
 
 domain: glowforge.glow
 

@@ -1,55 +1,46 @@
-# GlowForge Handoff — Builder Mode
+# GlowForge Handoff — QA Repair Mode
 
-## Last Run (2026-02-18)
+## Current State
+- All features built but many broken due to wiring bugs
+- QA report at `QA-REPORT.md` — 11/22 working, 8 broken, 3 partial
+- Fix list at `docs/QA-FIXES.md` — ordered by priority
 
-### Completed: Tool status timeline panel — `9bab84a`
+## Mode: REPAIR → SCOUT → REPEAT
 
-Added a dedicated **Timeline** tab in ToolDetail that shows only *status transitions* 
-(healthy → unhealthy → reachable) instead of every poll tick. This provides a clear
-history of incidents without noise.
+You are in repair mode. Your process:
 
-**Changes (all in `src/components/ToolRegistry/ToolDetail.tsx`):**
+### Phase 1: REPAIR
+1. Read `docs/QA-FIXES.md` — the fix list
+2. Pick the next unfixed item (top priority first)
+3. Fix it — real code changes
+4. Commit: `cd ~/tools/GlowForge && git add -A && git commit -m 'fix: ...'`
+5. Mark as fixed in `docs/QA-FIXES.md`
+6. Repeat until all fixes are done
 
-- `Tab` type extended: adds `'timeline'`
-- Tabs bar includes new **Timeline** tab with `<History />` icon
-- New helper `formatAgo(ts)` — returns `Xs`, `Xm`, `Xh`, `Xd`
-- New `TimelineTab` component:
-  - Accepts `history: Array<{status, ts}>`
-  - Compresses to transitions: only pushes when `status` changes
-  - Displays newest-first list
-  - Each row: colored dot + status label + timestamp + relative age
-  - Empty state: "No timeline entries yet"
+### Phase 2: SCOUT (QA retest)
+After all repairs, test the live site at `https://glowforge.glow`:
+1. Use `exec` + `curl -sk` to test every API endpoint listed in QA-REPORT.md
+2. Report: what's now working, what's still broken, any NEW bugs
+3. If new bugs found → add to QA-FIXES.md and go back to Phase 1
+4. If all clear → write updated QA-REPORT.md and mark HANDOFF as complete
 
-**How it works:**
-- `healthHistory` already stores samples every 15s (max 20)
-- Timeline view reduces this to transitions, so you only see state changes
-- Makes it easy to spot outages, restarts, and recoveries at a glance
+### IMPORTANT
+- The live site is at `https://glowforge.glow` (HTTPS, via Caddy)
+- Lantern API: `http://127.0.0.1:4777`
+- Loom API: `http://127.0.0.1:41002` (NOT 41000!)
+- After fixing vite.config.ts, the dev server auto-reloads
+- Test with `curl -sk` (skip TLS verification for local .glow certs)
 
-## UX
+## Key Files
+- `vite.config.ts` — proxy config (FIX #1 lives here)
+- `src/api/lantern.ts` — Lantern API client (FIX #2 lives here)
+- `src/components/ToolRegistry/ToolDetail.tsx` — log streaming, lifecycle buttons
+- `src/api/build.ts` — build status polling
+- `docs/QA-FIXES.md` — fix checklist
+- `QA-REPORT.md` — full QA findings
 
-Open any tool → Timeline tab:
-- See a small list of transitions (most recent first)
-- e.g. `unreachable → healthy → unhealthy → healthy`
-- Each entry shows **time** and **age** (e.g. `8:12 AM · 3m ago`)
-
-## Project State
-- `~/tools/GlowForge/` — 42 commits total
-- Core + post-v1 features complete
-- Health history and timeline are now both available in ToolDetail
-
-## What's Next
-
-Remaining Future Ideas:
-
-1. **Chat integration** — "build me a tool called X" → pre-fills wizard
-   - Requires Loom intent parsing
-   - Unclear UX payoff
-
-2. **Multi-tool compare view** — side-by-side ToolDetail panels
-   - Would need layout changes in App.tsx
-   - Useful for debugging similar services
-
-3. **Tool comparison notes** — small annotations per tool
-   - Let users write short notes and compare changes over time
-
-The platform is effectively feature-complete; future work is optional UX polish.
+## Rules
+- Fix one issue at a time
+- Commit each fix separately
+- After all fixes → retest everything
+- `trash` not `rm`

@@ -28,6 +28,19 @@ export async function getTraceStatus(traceId: string): Promise<TraceState> {
   return req<TraceState>('GET', `/status/${traceId}`)
 }
 
+export async function confirmTrace(traceId: string, approved: boolean, response = ''): Promise<void> {
+  await req('POST', `/confirm/${traceId}`, { approved, response })
+}
+
+export async function cancelTrace(traceId: string): Promise<boolean> {
+  try {
+    await req('DELETE', `/traces/${traceId}`)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function listHistory(limit = 20): Promise<TraceHistoryEntry[]> {
   const r = await req<{ history: TraceHistoryEntry[] }>('GET', `/history?limit=${limit}`)
   return r.history ?? []

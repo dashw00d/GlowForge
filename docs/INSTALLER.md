@@ -256,6 +256,26 @@ glowforge-installer/
   uninstall.sh                # Clean removal
 ```
 
+### dns.sh — critical implementation notes
+
+On Ubuntu/Debian with systemd-resolved (the default), standalone dnsmasq **will fail** because
+systemd-resolved holds port 53 on 127.0.0.53. The installer must:
+
+1. **Use NetworkManager's built-in dnsmasq** (not the standalone service):
+   - Add `dns=dnsmasq` under `[main]` in `/etc/NetworkManager/NetworkManager.conf`
+   - Write `address=/.glow/127.0.0.1` to `/etc/NetworkManager/dnsmasq.d/lantern.conf`
+   - Disable the standalone dnsmasq service: `systemctl disable --now dnsmasq`
+   - Restart NetworkManager: `systemctl restart NetworkManager`
+
+2. **Fix resolv.conf** to use NM's dnsmasq (which listens on 127.0.1.1):
+   - `ln -sf /run/NetworkManager/resolv.conf /etc/resolv.conf`
+   - This ensures `.glow` queries hit NM's dnsmasq, which also forwards non-`.glow` upstream
+
+3. **Verify** with `dig +short test.glow` — should return `127.0.0.1`
+
+The Lantern `dns.ex` module writes the config file but does NOT enable `dns=dnsmasq` in
+NetworkManager or fix the resolv.conf symlink — those are the installer's responsibility.
+
 ---
 
 ## Settings Panel (GlowForge UI)

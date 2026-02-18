@@ -6,7 +6,7 @@ import type {
   SystemHealth,
 } from '../types'
 
-export const LANTERN_BASE = 'http://127.0.0.1:4777'
+export const LANTERN_BASE = '/lantern-api'
 const BASE = LANTERN_BASE
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -80,28 +80,9 @@ export async function deleteProject(id: string): Promise<void> {
   await req('DELETE', `/api/projects/${encodeURIComponent(id)}`)
 }
 
-// Resolve Loom base URL via Lantern
-let _loomBaseUrl: string | null = null
-let _loomBaseUrlFetchedAt = 0
-
+// Resolve Loom base URL via Vite proxy
 export async function getLoomBaseUrl(): Promise<string> {
-  const now = Date.now()
-  if (_loomBaseUrl && now - _loomBaseUrlFetchedAt < 5 * 60 * 1000) {
-    return _loomBaseUrl
-  }
-  try {
-    const tool = await getTool('loom')
-    const url = tool.base_url || tool.upstream_url
-    if (url) {
-      _loomBaseUrl = url.replace(/\/$/, '')
-      _loomBaseUrlFetchedAt = now
-      return _loomBaseUrl
-    }
-  } catch {
-    // fall through to default
-  }
-  // Fallback: Loom's default port
-  return 'http://127.0.0.1:8410'
+  return '/loom-api'
 }
 
 // ─── Tool Creation ────────────────────────────────────────────────────────────

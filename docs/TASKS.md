@@ -18,10 +18,41 @@ _(none)_
 - [x] Schedules tab in ToolDetail — per-tool filtered schedule view, inline toggle, collapsible all-schedules, fix listSchedules() array API bug — `14f59ab`
 
 ## Backlog
-_(empty — all planned tasks complete)_
 
-### Ideas for future runs
+### Build System — Live Tool Construction (priority)
+Full spec: `docs/BUILD-SYSTEM.md`
+
+#### 1. build.yaml reader + types
+- [ ] TypeScript types — `BuildManifest`, `Phase`, `Step`, `BuildStatus`
+- [ ] `src/api/build.ts` — `fetchBuildStatus(toolId)` reads build.yaml via Lantern or Vite plugin
+- [ ] Vite plugin route — `GET /api/build/:toolId` reads `~/tools/{id}/build.yaml`, parses YAML, returns JSON
+
+#### 2. BuildCard component
+- [ ] `BuildCard.tsx` — compact card variant with progress bar, phase checklist, status text
+- [ ] Visual states — faded/dashed (pending), pulsing glow (building), amber (testing), red (failed)
+- [ ] Progress bar — computed from phase/step completion ratios
+- [ ] Current step name shown below progress bar
+
+#### 3. BuildDetail view
+- [ ] `BuildDetail.tsx` — expanded view: full phase list with step-level checkboxes
+- [ ] Current step highlighted with pulse animation
+- [ ] Build log panel — monospace, auto-scroll, entries from build.yaml `log[]`
+- [ ] Original prompt shown at top
+- [ ] File artifacts as clickable links
+- [ ] Elapsed time display
+
+#### 4. Registry integration
+- [ ] ToolList detects build.yaml on tools → renders BuildCard instead of ToolCard
+- [ ] Poll build.yaml every 3s while any tool has status building/testing/pending
+- [ ] Transition animation: BuildCard → ToolCard when status hits `ready`
+- [ ] "Retry" button on failed builds
+
+#### 5. Loom builder prompt update
+- [ ] Update tool creation wizard scaffold plugin to generate initial build.yaml
+- [ ] Document build.yaml update pattern for Loom builder agents
+
+### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
 - Schedule creation UI — form to add a new schedule from ToolDetail
-- Tool deletion — remove button in ToolDetail with Lantern `DELETE /api/projects/:name`
+- Tool deletion — remove button with Lantern `DELETE /api/projects/:name`
 - Log viewer tab in ToolDetail — tail journalctl for running services

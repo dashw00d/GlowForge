@@ -350,20 +350,23 @@ export function TraceCard({ traceId, prompt, onStatusChange, cancelled, onCancel
 
 const MAX_COLLAPSED_LINES = 8
 
-function ArtifactBlock({ output }: { output: string }) {
-  const lines = output.split('\n')
+function ArtifactBlock({ output }: { output: string | { _raw_text: string } }) {
+  // Loom returns output as either a plain string or {_raw_text: "..."} — normalise here
+  const text = typeof output === 'string' ? output : (output._raw_text ?? '')
+
+  const lines = text.split('\n')
   const isLong = lines.length > MAX_COLLAPSED_LINES
   const [outputExpanded, setOutputExpanded] = useState(false)
   const [copied, setCopied] = useState(false)
 
   const displayed = isLong && !outputExpanded
     ? lines.slice(0, MAX_COLLAPSED_LINES).join('\n')
-    : output
+    : text
 
   async function handleCopy(e: React.MouseEvent) {
     e.stopPropagation()
     try {
-      await navigator.clipboard.writeText(output)
+      await navigator.clipboard.writeText(text)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {

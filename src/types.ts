@@ -124,7 +124,8 @@ export interface LoomTask {
 export interface TaskArtifact {
   task_id: string
   status: 'done' | 'error' | 'skipped'
-  output?: string
+  // Loom may return output as a plain string or as {_raw_text: string}
+  output?: string | { _raw_text: string }
   error?: string
 }
 

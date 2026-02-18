@@ -879,7 +879,7 @@ Reads `result["data"]["items"]` — implicit contract with extension's `task-exe
 ## Fix Priority Order
 
 1. **C1** — `browser-queue.ts:enqueue()` callback fields (1-line fix, enables entire Twitter Intel feedback loop) ✅ FIXED 7270b30
-2. **C2** — `ToolCard.tsx` `tool.id` → `tool.name` (1-word fix × 3 lines, restores GlowForge/GhostGraph/Loom controls)
+2. **C2** — `ToolCard.tsx` `tool.id` → `tool.name` (1-word fix × 3 lines, restores GlowForge/GhostGraph/Loom controls) ✅ FIXED 1376beb
 3. **C3** — `ArtifactBlock` string assumption (prevents runtime crash on completed traces)
 4. **C4** — `ToolDetail` health lookup key (health panel has been broken since first deploy)
 5. **H3** — `GLOWFORGE_URL` default in twitter-intel (connection refused at runtime)

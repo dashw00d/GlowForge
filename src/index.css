@@ -22,6 +22,35 @@
   --radius: 6px;
 }
 
+/* ── Light theme — applied via html.light ────────────────── */
+.light {
+  /* Backgrounds */
+  --color-background:    oklch(0.96 0.006 260);
+  --color-surface:       oklch(1.00 0.002 260);
+  --color-surface-raised: oklch(0.93 0.006 260);
+
+  /* Borders */
+  --color-border:        oklch(0.78 0.012 260);
+  --color-border-subtle: oklch(0.88 0.008 260);
+
+  /* Text */
+  --color-text-primary:  oklch(0.13 0.016 260);
+  --color-text-secondary: oklch(0.36 0.012 260);
+  --color-text-muted:    oklch(0.54 0.010 260);
+
+  /* Accent — slightly deeper in light mode for contrast */
+  --color-accent:        oklch(0.55 0.20 260);
+  --color-accent-subtle: oklch(0.55 0.20 260 / 0.10);
+
+  /* Status colors — same hue, adjusted lightness for readability on white */
+  --color-green:         oklch(0.55 0.18 150);
+  --color-green-subtle:  oklch(0.55 0.18 150 / 0.10);
+  --color-red:           oklch(0.52 0.22 25);
+  --color-red-subtle:    oklch(0.52 0.22 25 / 0.10);
+  --color-yellow:        oklch(0.60 0.18 85);
+  --color-yellow-subtle: oklch(0.60 0.18 85 / 0.10);
+}
+
 * {
   box-sizing: border-box;
 }

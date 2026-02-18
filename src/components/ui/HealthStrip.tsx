@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
+import { Sun, Moon } from 'lucide-react'
 import { getSystemHealth } from '../../api/lantern'
 import type { SystemHealth } from '../../types'
+import type { Theme } from '../../hooks/useTheme'
 import { cn } from '../../lib/utils'
 
 type HealthStatus = 'ok' | 'warning' | 'error' | 'unknown'
@@ -31,7 +33,12 @@ const INDICATORS: Indicator[] = [
   { key: 'tls', label: 'TLS' },
 ]
 
-export function HealthStrip() {
+interface HealthStripProps {
+  theme?: Theme
+  onThemeToggle?: () => void
+}
+
+export function HealthStrip({ theme, onThemeToggle }: HealthStripProps) {
   const [health, setHealth] = useState<SystemHealth | null>(null)
   const [error, setError] = useState(false)
 
@@ -56,6 +63,20 @@ export function HealthStrip() {
     health &&
     Object.values(health).every((c) => c.status === 'ok')
 
+  const toggle = onThemeToggle ? (
+    <button
+      onClick={onThemeToggle}
+      title={theme === 'light' ? 'Switch to dark mode' : 'Switch to light mode'}
+      className="ml-2 p-1 rounded transition-colors hover:bg-[var(--color-surface-raised)]"
+      style={{ color: 'var(--color-text-muted)' }}
+    >
+      {theme === 'light'
+        ? <Moon className="size-3" />
+        : <Sun className="size-3" />
+      }
+    </button>
+  ) : null
+
   // Lantern unreachable
   if (error) {
     return (
@@ -68,7 +89,8 @@ export function HealthStrip() {
         }}
       >
         <span className="inline-block size-1.5 rounded-full bg-[var(--color-red)] animate-pulse" />
-        <span>Lantern unreachable — is the daemon running at 127.0.0.1:4777?</span>
+        <span className="flex-1">Lantern unreachable — is the daemon running at 127.0.0.1:4777?</span>
+        {toggle}
       </div>
     )
   }
@@ -93,6 +115,7 @@ export function HealthStrip() {
             <Chip key={key} label={label} status={health[key].status as HealthStatus} />
           ))}
         </span>
+        {toggle}
       </div>
     )
   }
@@ -119,6 +142,7 @@ export function HealthStrip() {
           </div>
         )
       })}
+      <span className="ml-auto">{toggle}</span>
     </div>
   )
 }

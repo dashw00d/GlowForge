@@ -5,9 +5,11 @@ import { BuildDetail } from './components/ToolRegistry/BuildDetail'
 import { ChatPanel } from './components/LoomChat/ChatPanel'
 import { HealthStrip } from './components/ui/HealthStrip'
 import { isActiveBuild } from './api/build'
+import { useTheme } from './hooks/useTheme'
 import type { BuildManifest } from './types'
 
 export default function App() {
+  const { theme, toggleTheme } = useTheme()
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null)
   const [buildManifests, setBuildManifests] = useState<Map<string, BuildManifest>>(new Map())
   // Bump to force ToolList to reload immediately (e.g. after tool deletion)
@@ -40,7 +42,7 @@ export default function App() {
       style={{ backgroundColor: 'var(--color-background)', color: 'var(--color-text-primary)' }}
     >
       {/* Global health strip — spans full width */}
-      <HealthStrip />
+      <HealthStrip theme={theme} onThemeToggle={toggleTheme} />
 
       {/* Three-column body */}
       <div className="flex flex-1 min-h-0">

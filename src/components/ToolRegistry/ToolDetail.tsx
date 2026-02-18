@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical } from 'lucide-react'
 import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, LANTERN_BASE } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
 import { listSchedules, toggleSchedule, createSchedule, deleteSchedule } from '../../api/loom'
@@ -8,7 +8,7 @@ import { Spinner } from '../ui/Spinner'
 import { StatusDot } from '../ui/StatusDot'
 import { MarkdownView } from '../ui/MarkdownView'
 import { cn } from '../../lib/utils'
-import type { ToolDetail as IToolDetail, ProjectHealthStatus, ScheduledTask } from '../../types'
+import type { ToolDetail as IToolDetail, ProjectHealthStatus, ScheduledTask, EndpointEntry } from '../../types'
 
 interface Props {
   toolId: string
@@ -305,53 +305,434 @@ function OverviewTab({ tool, health }: { tool: IToolDetail; health: ProjectHealt
   )
 }
 
+// ─── Endpoint color maps ──────────────────────────────────────────────────────
+
+const RISK_COLOR: Record<string, string> = {
+  low:    'text-[var(--color-green)]',
+  medium: 'text-[var(--color-yellow)]',
+  high:   'text-[var(--color-red)]',
+}
+
+const METHOD_COLOR: Record<string, string> = {
+  GET:    'text-[var(--color-green)]',
+  POST:   'text-[var(--color-accent)]',
+  PUT:    'text-[var(--color-yellow)]',
+  PATCH:  'text-[var(--color-yellow)]',
+  DELETE: 'text-[var(--color-red)]',
+}
+
+const METHOD_BG: Record<string, string> = {
+  GET:    'bg-[var(--color-green-subtle)]',
+  POST:   'bg-[var(--color-accent-subtle)]',
+  PUT:    'bg-[var(--color-yellow-subtle)]',
+  PATCH:  'bg-[var(--color-yellow-subtle)]',
+  DELETE: 'bg-[var(--color-red-subtle)]',
+}
+
+// ─── Test response types ──────────────────────────────────────────────────────
+
+interface TestResponse {
+  status: number
+  statusText: string
+  headers: Record<string, string>
+  body: string
+  timeMs: number
+  isJson: boolean
+}
+
+// ─── EndpointsTab ─────────────────────────────────────────────────────────────
+
 function EndpointsTab({ tool }: { tool: IToolDetail }) {
   const endpoints = [...(tool.endpoints ?? []), ...(tool.discovered_endpoints ?? [])]
-  if (endpoints.length === 0) {
-    return <p className="text-xs text-[var(--color-text-muted)]">No endpoints discovered.</p>
-  }
 
-  const RISK_COLOR: Record<string, string> = {
-    low: 'text-[var(--color-green)]',
-    medium: 'text-[var(--color-yellow)]',
-    high: 'text-[var(--color-red)]',
-  }
-  const METHOD_COLOR: Record<string, string> = {
-    GET: 'text-[var(--color-green)]',
-    POST: 'text-[var(--color-accent)]',
-    PUT: 'text-[var(--color-yellow)]',
-    PATCH: 'text-[var(--color-yellow)]',
-    DELETE: 'text-[var(--color-red)]',
+  // Track which endpoint has its tester open (by index)
+  const [activeIdx, setActiveIdx] = useState<number | null>(null)
+
+  if (endpoints.length === 0) {
+    return (
+      <div className="flex flex-col items-center gap-2 py-8 text-center">
+        <Zap className="size-5 text-[var(--color-text-muted)] opacity-30" />
+        <p className="text-xs text-[var(--color-text-muted)]">No endpoints discovered.</p>
+      </div>
+    )
   }
 
   return (
     <div className="space-y-1.5">
       {endpoints.map((ep, i) => (
-        <div
+        <EndpointRow
           key={i}
-          className="rounded bg-[var(--color-surface-raised)] px-3 py-2 border border-[var(--color-border-subtle)]"
+          ep={ep}
+          baseUrl={tool.base_url ?? tool.upstream_url ?? ''}
+          isOpen={activeIdx === i}
+          onToggle={() => setActiveIdx((prev) => (prev === i ? null : i))}
+        />
+      ))}
+    </div>
+  )
+}
+
+// ─── EndpointRow with inline tester ──────────────────────────────────────────
+
+function EndpointRow({
+  ep,
+  baseUrl,
+  isOpen,
+  onToggle,
+}: {
+  ep: EndpointEntry
+  baseUrl: string
+  isOpen: boolean
+  onToggle: () => void
+}) {
+  // Form state (editable copies of the endpoint)
+  const [method, setMethod] = useState(ep.method)
+  const [path, setPath] = useState(ep.path)
+  const [query, setQuery] = useState('')
+  const [body, setBody] = useState('')
+  const [headers, setHeaders] = useState('')
+
+  // Response state
+  const [loading, setLoading] = useState(false)
+  const [response, setResponse] = useState<TestResponse | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  // Response UI state
+  const [showHeaders, setShowHeaders] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const hasBody = ['POST', 'PUT', 'PATCH'].includes(method)
+
+  // Reset form when endpoint changes (path/method from parent)
+  useEffect(() => {
+    setMethod(ep.method)
+    setPath(ep.path)
+    setQuery('')
+    setBody('')
+    setHeaders('')
+    setResponse(null)
+    setError(null)
+  }, [ep.method, ep.path])
+
+  async function handleSend() {
+    if (!baseUrl) {
+      setError('No base URL available for this tool')
+      return
+    }
+    setLoading(true)
+    setResponse(null)
+    setError(null)
+
+    const url = `${baseUrl}${path}${query ? `?${query}` : ''}`
+    const start = performance.now()
+
+    try {
+      const reqHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+      // Parse additional headers (key: value, one per line)
+      for (const line of headers.split('\n')) {
+        const [k, ...v] = line.split(':')
+        if (k?.trim() && v.length) reqHeaders[k.trim()] = v.join(':').trim()
+      }
+
+      const res = await fetch(url, {
+        method,
+        headers: reqHeaders,
+        body: hasBody && body.trim() ? body.trim() : undefined,
+      })
+
+      const timeMs = Math.round(performance.now() - start)
+      const text = await res.text()
+      const isJson = res.headers.get('content-type')?.includes('application/json') ?? false
+
+      const respHeaders: Record<string, string> = {}
+      res.headers.forEach((v, k) => { respHeaders[k] = v })
+
+      // Try to pretty-print JSON
+      let displayBody = text
+      if (isJson) {
+        try { displayBody = JSON.stringify(JSON.parse(text), null, 2) } catch { /* keep raw */ }
+      }
+
+      setResponse({
+        status: res.status,
+        statusText: res.statusText || String(res.status),
+        headers: respHeaders,
+        body: displayBody,
+        timeMs,
+        isJson,
+      })
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Request failed')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  async function handleCopy() {
+    if (!response) return
+    await navigator.clipboard.writeText(response.body)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  const statusColor =
+    !response ? ''
+    : response.status < 300 ? 'text-[var(--color-green)]'
+    : response.status < 400 ? 'text-[var(--color-yellow)]'
+    : 'text-[var(--color-red)]'
+
+  const statusBg =
+    !response ? ''
+    : response.status < 300 ? 'bg-[var(--color-green-subtle)]'
+    : response.status < 400 ? 'bg-[var(--color-yellow-subtle)]'
+    : 'bg-[var(--color-red-subtle)]'
+
+  const formInputStyle: React.CSSProperties = {
+    backgroundColor: 'var(--color-surface)',
+    border: '1px solid var(--color-border)',
+    borderRadius: '4px',
+    color: 'var(--color-text-primary)',
+    fontSize: '11px',
+    padding: '3px 6px',
+    outline: 'none',
+  }
+
+  return (
+    <div
+      className={cn(
+        'rounded border transition-colors',
+        isOpen
+          ? 'border-[var(--color-accent)] bg-[var(--color-surface-raised)]'
+          : 'border-[var(--color-border-subtle)] bg-[var(--color-surface-raised)] hover:border-[var(--color-border)]'
+      )}
+    >
+      {/* Header row */}
+      <div
+        className="flex items-center gap-2 px-3 py-2 cursor-pointer select-none"
+        onClick={onToggle}
+      >
+        {/* Method badge */}
+        <span
+          className={cn(
+            'text-[10px] font-mono font-bold w-12 shrink-0 px-1 py-0.5 rounded text-center',
+            METHOD_COLOR[ep.method] ?? 'text-[var(--color-text-secondary)]',
+            METHOD_BG[ep.method] ?? ''
+          )}
         >
-          <div className="flex items-center gap-2">
-            <span
-              className={cn(
-                'text-[10px] font-mono font-bold w-12 shrink-0',
-                METHOD_COLOR[ep.method] ?? 'text-[var(--color-text-secondary)]'
-              )}
+          {ep.method}
+        </span>
+
+        {/* Path */}
+        <span className="text-xs font-mono text-[var(--color-text-primary)] flex-1 truncate">
+          {ep.path}
+        </span>
+
+        {/* Risk */}
+        {ep.risk && (
+          <span className={cn('text-[9px] shrink-0', RISK_COLOR[ep.risk] ?? '')}>
+            {ep.risk}
+          </span>
+        )}
+
+        {/* Test button */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onToggle() }}
+          className={cn(
+            'shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[9px] font-medium transition-colors',
+            isOpen
+              ? 'bg-[var(--color-accent)] text-white'
+              : 'text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)]'
+          )}
+        >
+          <FlaskConical className="size-2.5" />
+          Test
+        </button>
+      </div>
+
+      {/* Description */}
+      {ep.description && (
+        <p className="text-[10px] text-[var(--color-text-secondary)] px-3 pb-1.5 ml-14">
+          {ep.description}
+        </p>
+      )}
+
+      {/* Inline test form */}
+      {isOpen && (
+        <div
+          className="border-t px-3 py-3 space-y-2.5"
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
+          {/* No base URL warning */}
+          {!baseUrl && (
+            <div className="flex items-center gap-1.5 text-[10px] text-[var(--color-yellow)]">
+              <AlertCircle className="size-3 shrink-0" />
+              Tool has no base URL — cannot fire requests
+            </div>
+          )}
+
+          {/* Method + Path */}
+          <div className="flex items-center gap-1.5">
+            <select
+              value={method}
+              onChange={(e) => setMethod(e.target.value)}
+              style={{ ...formInputStyle, width: '68px', appearance: 'none', cursor: 'pointer' }}
             >
-              {ep.method}
-            </span>
-            <span className="text-xs font-mono text-[var(--color-text-primary)]">{ep.path}</span>
-            {ep.risk && (
-              <span className={cn('text-[10px] ml-auto', RISK_COLOR[ep.risk] ?? '')}>
-                {ep.risk}
-              </span>
-            )}
+              {['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD'].map((m) => (
+                <option key={m}>{m}</option>
+              ))}
+            </select>
+            <input
+              value={path}
+              onChange={(e) => setPath(e.target.value)}
+              style={{ ...formInputStyle, flex: 1, fontFamily: 'monospace' }}
+              placeholder="/path"
+            />
           </div>
-          {ep.description && (
-            <p className="text-xs text-[var(--color-text-secondary)] mt-1 ml-14">{ep.description}</p>
+
+          {/* Query string */}
+          <div className="space-y-0.5">
+            <label className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">
+              Query params
+            </label>
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ ...formInputStyle, width: '100%', fontFamily: 'monospace' }}
+              placeholder="key=value&other=123"
+            />
+          </div>
+
+          {/* Body (POST/PUT/PATCH only) */}
+          {hasBody && (
+            <div className="space-y-0.5">
+              <label className="text-[9px] text-[var(--color-text-muted)] uppercase tracking-wider">
+                Body (JSON)
+              </label>
+              <textarea
+                value={body}
+                onChange={(e) => setBody(e.target.value)}
+                rows={3}
+                style={{ ...formInputStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace' }}
+                placeholder='{"key": "value"}'
+              />
+            </div>
+          )}
+
+          {/* Custom headers (collapsed by default) */}
+          <details className="text-[10px]">
+            <summary
+              className="cursor-pointer text-[var(--color-text-muted)] select-none"
+              style={{ listStyle: 'none' }}
+            >
+              + Custom headers
+            </summary>
+            <textarea
+              value={headers}
+              onChange={(e) => setHeaders(e.target.value)}
+              rows={2}
+              style={{ ...formInputStyle, width: '100%', resize: 'vertical', fontFamily: 'monospace', marginTop: '4px' }}
+              placeholder={'Authorization: Bearer token\nX-Custom: value'}
+            />
+          </details>
+
+          {/* Send button */}
+          <button
+            onClick={handleSend}
+            disabled={loading || !baseUrl}
+            className="flex items-center gap-1.5 px-3 py-1 rounded text-xs font-medium transition-opacity disabled:opacity-40"
+            style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+          >
+            {loading ? (
+              <Spinner className="size-3" />
+            ) : (
+              <Play className="size-3" />
+            )}
+            {loading ? 'Sending…' : 'Send'}
+          </button>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-start gap-1.5 text-[10px] text-[var(--color-red)]">
+              <AlertCircle className="size-3 shrink-0 mt-0.5" />
+              {error}
+            </div>
+          )}
+
+          {/* Response */}
+          {response && (
+            <div
+              className="rounded border overflow-hidden"
+              style={{ borderColor: 'var(--color-border-subtle)' }}
+            >
+              {/* Response status bar */}
+              <div
+                className={cn('flex items-center gap-2 px-3 py-1.5', statusBg)}
+                style={{ borderBottom: '1px solid var(--color-border-subtle)' }}
+              >
+                <span className={cn('text-xs font-bold font-mono', statusColor)}>
+                  {response.status}
+                </span>
+                <span className="text-[10px] text-[var(--color-text-secondary)]">
+                  {response.statusText}
+                </span>
+                <span className="text-[9px] text-[var(--color-text-muted)] ml-auto">
+                  {response.timeMs}ms
+                </span>
+
+                {/* Toggle headers */}
+                <button
+                  onClick={() => setShowHeaders((v) => !v)}
+                  className="text-[9px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+                >
+                  headers {showHeaders ? '▲' : '▼'}
+                </button>
+
+                {/* Copy button */}
+                <button
+                  onClick={handleCopy}
+                  title="Copy response body"
+                  className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors"
+                >
+                  {copied
+                    ? <ClipboardCheck className="size-3 text-[var(--color-green)]" />
+                    : <Clipboard className="size-3" />
+                  }
+                </button>
+              </div>
+
+              {/* Headers panel */}
+              {showHeaders && (
+                <div
+                  className="px-3 py-2 space-y-0.5 text-[9px] font-mono"
+                  style={{
+                    backgroundColor: 'var(--color-surface)',
+                    borderBottom: '1px solid var(--color-border-subtle)',
+                  }}
+                >
+                  {Object.entries(response.headers).map(([k, v]) => (
+                    <div key={k} className="flex gap-2 min-w-0">
+                      <span className="text-[var(--color-text-muted)] shrink-0">{k}:</span>
+                      <span className="text-[var(--color-text-secondary)] truncate">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Response body */}
+              <pre
+                className="text-[10px] font-mono p-2 overflow-x-auto whitespace-pre-wrap break-all text-[var(--color-text-secondary)]"
+                style={{
+                  backgroundColor: 'var(--color-surface)',
+                  maxHeight: '240px',
+                  overflowY: 'auto',
+                }}
+              >
+                {response.body || <span className="text-[var(--color-text-muted)] italic">(empty body)</span>}
+              </pre>
+            </div>
           )}
         </div>
-      ))}
+      )}
     </div>
   )
 }

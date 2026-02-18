@@ -13,6 +13,9 @@ export interface BrowserTask {
   action: string
   target_url?: string
   params?: Record<string, unknown>
+  callback_url?: string    // POST result here on completion
+  source?: string          // who submitted ("twitter-intel", "loom", "manual")
+  correlation_id?: string  // caller's own ID for matching
 }
 
 export type ResultStatus = 'success' | 'error' | 'expired'
@@ -63,12 +66,22 @@ class BrowserQueue {
     const now = Date.now()
     while (this.tasks.length > 0) {
       const task = this.tasks.shift()!
-      if (!this._isExpired(task, now)) return task
+      if (!this._isExpired(task, now)) {
+        // Store for callback resolution when result arrives
+        if (task.callback_url) {
+          this.completedTasks.set(task.id, task)
+        }
+        return task
+      }
       // Auto-record expired task as a result
       this._recordExpired(task)
     }
     return null
   }
+
+  // ── Task lookup (for callback resolution) ──────────────────────────────────
+
+  private completedTasks = new Map<string, BrowserTask>() // task_id → original task
 
   // ── Results ───────────────────────────────────────────────────────────────
 
@@ -78,7 +91,37 @@ class BrowserQueue {
     if (this.results.length > this.maxResults) {
       this.results.length = this.maxResults
     }
+
+    // Fire callback if the original task had a callback_url
+    const originalTask = this.completedTasks.get(input.task_id)
+    if (originalTask?.callback_url) {
+      this._fireCallback(originalTask.callback_url, result, originalTask).catch(() => {})
+    }
+    this.completedTasks.delete(input.task_id)
+
     return result
+  }
+
+  private async _fireCallback(url: string, result: TaskResult, task: BrowserTask): Promise<void> {
+    try {
+      const body = JSON.stringify({
+        task_id: result.task_id,
+        correlation_id: task.correlation_id,
+        source: task.source,
+        status: result.status,
+        data: result.data,
+        error: result.error,
+        completed_at: result.completed_at,
+      })
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+        signal: AbortSignal.timeout(5000),
+      })
+    } catch {
+      // Fire-and-forget — don't let callback failures affect the queue
+    }
   }
 
   // ── Queries ───────────────────────────────────────────────────────────────

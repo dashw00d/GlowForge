@@ -154,3 +154,72 @@ export interface PromptResponse {
   trace_id: string
   status: string
 }
+
+// ─── Build System Types ───────────────────────────────────────────────────────
+
+export type BuildStatus = 'pending' | 'building' | 'testing' | 'ready' | 'failed'
+
+export type PhaseStatus = 'pending' | 'in_progress' | 'done' | 'failed' | 'skipped'
+
+export interface BuildStep {
+  name: string
+  status: PhaseStatus
+  file?: string
+  /** Timestamp when this step entered in_progress status */
+  started_at?: string
+  /** Timestamp when this step completed */
+  completed_at?: string
+}
+
+export interface BuildPhase {
+  id: string
+  name: string
+  status: PhaseStatus
+  started_at?: string
+  completed_at?: string
+  /** Files created or modified during this phase */
+  artifacts?: string[]
+  /** Granular steps within the phase (optional) */
+  steps?: BuildStep[]
+}
+
+export interface BuildLogEntry {
+  time: string
+  msg: string
+}
+
+export interface BuildManifest {
+  /** Tool ID — matches lantern.yaml id */
+  tool_id: string
+  /** Display name */
+  name: string
+  /** Original user prompt that triggered the build */
+  prompt: string
+  /** Overall build status */
+  status: BuildStatus
+  /** When the build started */
+  started_at: string
+  /** 0–1 progress float, computed from phase completion */
+  progress: number
+  /** Set when status → ready | failed */
+  completed_at?: string
+  /** Set when status → failed */
+  error?: string
+  /** Ordered list of build phases */
+  phases: BuildPhase[]
+  /** Append-only build log */
+  log: BuildLogEntry[]
+}
+
+/** Computed helper — current active phase (in_progress or first pending) */
+export interface BuildSummary {
+  manifest: BuildManifest
+  /** Derived: current phase being worked on */
+  currentPhase: BuildPhase | null
+  /** Derived: current step being worked on */
+  currentStep: BuildStep | null
+  /** Derived: elapsed seconds since started_at */
+  elapsedSeconds: number
+  /** Derived: "2m 15s" formatted elapsed */
+  elapsedFormatted: string
+}

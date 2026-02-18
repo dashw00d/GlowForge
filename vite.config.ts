@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import path from 'path'
 import { browserQueuePlugin } from './src/server/browser-api-plugin.js'
 import { scaffoldPlugin } from './src/server/scaffold-plugin.js'
+import { buildPlugin } from './src/server/build-plugin.js'
 
 export default defineConfig({
   plugins: [
@@ -11,6 +12,7 @@ export default defineConfig({
     tailwindcss(),
     browserQueuePlugin(),
     scaffoldPlugin(),
+    buildPlugin(),
   ],
   resolve: {
     alias: {

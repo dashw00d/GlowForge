@@ -4,6 +4,7 @@ import { listTools } from '../../api/lantern'
 import { ToolCard } from './ToolCard'
 import { Spinner } from '../ui/Spinner'
 import { ScheduleManager } from './ScheduleManager'
+import { BrowserQueueDrawer } from './BrowserQueueDrawer'
 import type { ToolSummary } from '../../types'
 
 interface Props {
@@ -116,6 +117,9 @@ export function ToolList({ selectedId, onSelect }: Props) {
 
       {/* Schedule manager — pinned to bottom */}
       <ScheduleManager />
+
+      {/* Browser queue drawer — below schedule manager */}
+      <BrowserQueueDrawer />
     </div>
   )
 }

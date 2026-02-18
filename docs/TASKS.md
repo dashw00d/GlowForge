@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Queue UI — browser queue drawer: pending tasks, recent results, dispatch form, live status
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -11,24 +11,22 @@ _(none)_
 - [x] ToolDetail docs tab — loads markdown via API, renders with full CSS, file selector for multi-doc tools — `bcc9c83`
 - [x] Keyboard shortcuts — `/` and `Cmd+K` focus chat from anywhere, header badge + footer hint — `ba41c38`
 - [x] TraceCard polish — copy button, expand/collapse long outputs, prominent plan while running — `500d9d7`
-- [x] Browser extension scaffold — manifest V3, background SW, content script, humanize lib, queue client, task executor, popup — `9492910`
-- [x] Server-side task queue — Vite plugin API at `/api/browser/*`, in-memory queue with TTL expiry, frontend client `src/api/browser.ts` — `507eec5`
+- [x] Server-side browser task queue — Vite plugin API at `/api/browser/*`, in-memory queue with TTL — `507eec5`
+- [x] Frontend API client for queue — `src/api/browser.ts` — `507eec5`
 
 ## Backlog
 
-### Phase 2 – Autonomous Build
-- [ ] "Build me a tool" flow — user describes tool in chat → Loom creates scaffold → shows in registry
-- [ ] Tool creation wizard — modal: name, description, kind → generates lantern.yaml + scaffold → triggers Lantern rescan
+### 1. Queue UI (do first — connects GlowForge to browser extension)
+- [ ] Queue panel — new component: pending task list, recent results with status badges, pending count
+- [ ] Dispatch form — action type dropdown, target URL input, params JSON editor, TTL slider → POST `/api/browser/tasks`
+- [ ] Live refresh — poll `/api/browser/queue` every 5s, show connected/disconnected indicator
+- [ ] Wire into layout — collapsible drawer or dedicated tab in the main UI
 
-### Phase 3 – Declarative Scheduling
+### 2. Tool Creation Wizard (Phase 2 headline)
+- [ ] "New Tool" modal — name, description, kind fields
+- [ ] Scaffold generator — creates tool directory + lantern.yaml from template
+- [ ] Registration pipeline — write files → trigger Lantern rescan → tool appears in registry panel
+- [ ] Chat integration — "build me a tool" in Loom chat triggers the wizard flow
+
+### 3. Declarative Scheduling (Phase 3)
 - [ ] Schedule toggle in ToolDetail — per-tool schedule view from Loom `/schedules`
-
-### Phase 4 – Browser Task Queue
-- [ ] Queue UI — view pending tasks, recent results, dispatch new tasks to extension
-
-### Phase 5 – Stretch
-- [ ] Public routing via `exposure: public` (requires Lantern changes)
-- [ ] Remote registry federation
-
-## Note
-Browser extension lives at `~/tools/browser/extension/` — separate builder handles that project.

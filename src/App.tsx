@@ -1,11 +1,36 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { ToolList } from './components/ToolRegistry/ToolList'
 import { ToolDetail } from './components/ToolRegistry/ToolDetail'
+import { BuildDetail } from './components/ToolRegistry/BuildDetail'
 import { ChatPanel } from './components/LoomChat/ChatPanel'
 import { HealthStrip } from './components/ui/HealthStrip'
+import { isActiveBuild } from './api/build'
+import type { BuildManifest } from './types'
 
 export default function App() {
   const [selectedToolId, setSelectedToolId] = useState<string | null>(null)
+  const [buildManifests, setBuildManifests] = useState<Map<string, BuildManifest>>(new Map())
+
+  // Stable callback passed to ToolList — updates parent's copy of build manifests
+  const handleBuildManifestUpdate = useCallback((manifests: Map<string, BuildManifest>) => {
+    setBuildManifests(new Map(manifests))
+  }, [])
+
+  // Decide which detail panel to show for the selected tool
+  const selectedManifest = selectedToolId ? buildManifests.get(selectedToolId) : undefined
+  const showBuildDetail = selectedToolId != null &&
+    selectedManifest != null &&
+    isActiveBuild(selectedManifest)
+
+  // When build goes ready, clear its manifest so ToolDetail takes over
+  const handleBuildReady = useCallback(() => {
+    if (!selectedToolId) return
+    setBuildManifests((prev) => {
+      const next = new Map(prev)
+      next.delete(selectedToolId)
+      return next
+    })
+  }, [selectedToolId])
 
   return (
     <div
@@ -30,10 +55,11 @@ export default function App() {
           <ToolList
             selectedId={selectedToolId}
             onSelect={(id) => setSelectedToolId((prev) => (prev === id ? null : id))}
+            onBuildManifestUpdate={handleBuildManifestUpdate}
           />
         </aside>
 
-        {/* Tool Detail slide-in */}
+        {/* Detail panel — BuildDetail or ToolDetail depending on build state */}
         {selectedToolId && (
           <aside
             className="flex flex-col shrink-0 border-r"
@@ -43,10 +69,26 @@ export default function App() {
               backgroundColor: 'var(--color-surface)',
             }}
           >
-            <ToolDetail
-              toolId={selectedToolId}
-              onClose={() => setSelectedToolId(null)}
-            />
+            {showBuildDetail ? (
+              <BuildDetail
+                toolId={selectedToolId}
+                onClose={() => setSelectedToolId(null)}
+                onReady={handleBuildReady}
+                onRetry={() => {
+                  // Clear manifest — user re-prompts Loom to retry
+                  setBuildManifests((prev) => {
+                    const next = new Map(prev)
+                    if (selectedToolId) next.delete(selectedToolId)
+                    return next
+                  })
+                }}
+              />
+            ) : (
+              <ToolDetail
+                toolId={selectedToolId}
+                onClose={() => setSelectedToolId(null)}
+              />
+            )}
           </aside>
         )}
 

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Registry integration — wire BuildCard/BuildDetail into ToolList + App, adaptive polling
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`

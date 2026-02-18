@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Pinned endpoints — star button per EndpointRow, "Pinned" section in EndpointsTab, global PinnedEndpointsDrawer in ToolList, localStorage persistence
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -61,7 +61,10 @@ Full spec: `docs/BUILD-SYSTEM.md`
 ### Completed Future Ideas (cont.)
 - [x] Dark/light theme toggle — `.light` CSS var overrides, localStorage, Sun/Moon in HealthStrip — `9b7cdbe`
 
+### Completed Future Ideas (cont.)
+- [x] Pinned endpoints — star/unpin per EndpointRow, "⭐ Pinned" section at top of EndpointsTab, global PinnedEndpointsDrawer in ToolList sidebar with quick-fire — `a689e95`
+
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
 - Tool restart button in ToolDetail (POST /api/projects/:name/restart)
-- Pinned endpoints — star/bookmark endpoints for quick access across tools
+- Tool health history graph — sparkline of health check results over time

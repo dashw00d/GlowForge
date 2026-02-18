@@ -70,7 +70,10 @@ Full spec: `docs/BUILD-SYSTEM.md`
 ### Completed Future Ideas (cont.)
 - [x] Tool health history graph — 15s poll of project health, status dot sparkline in ToolDetail — `776b42c`
 
+### Completed Future Ideas (cont.)
+- [x] Tool status timeline panel — new ToolDetail "Timeline" tab showing health status transitions — `9bab84a`
+
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
 - Multi-tool compare view — side-by-side ToolDetail panels
-- Tool status timeline panel — detailed log of state transitions
+- Tool comparison notes — annotate tools and compare changes over time

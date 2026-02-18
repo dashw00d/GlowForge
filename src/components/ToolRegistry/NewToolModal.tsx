@@ -117,6 +117,9 @@ export function NewToolModal({ onClose, onCreated }: Props) {
       })
       setCreatedPath(scaffold.path)
       addProgress(`✓ Created ${scaffold.path}`)
+      if (scaffold.build_yaml_path) {
+        addProgress(`📋 Build manifest created (pending — will appear as BuildCard in registry)`)
+      }
 
       // Step 2: register with Lantern
       addProgress('🔗 Registering with Lantern…')

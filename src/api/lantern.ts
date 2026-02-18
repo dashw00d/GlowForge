@@ -151,6 +151,7 @@ export interface ScaffoldResult {
   path: string
   yaml_path: string
   readme_path: string
+  build_yaml_path?: string  // written when status: pending to enable BuildCard immediately
 }
 
 export async function scaffoldTool(input: ScaffoldInput): Promise<ScaffoldResult> {

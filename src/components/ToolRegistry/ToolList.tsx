@@ -46,14 +46,20 @@ export function ToolList({ selectedId, onSelect, onBuildManifestUpdate, refreshK
 
   // ── Tool list loading ───────────────────────────────────────────────────────
 
+  // Track if initial build check has been done
+  const buildCheckDone = useRef(false)
+
   const load = useCallback(async () => {
     setError(null)
     try {
       const data = await listTools()
       setTools(data)
       toolIdsRef.current = data.map((t) => t.id)
-      // Also refresh build manifests when tool list refreshes
-      await loadBuilds(toolIdsRef.current)
+      // Only check builds once on initial load, not every 10s poll
+      if (!buildCheckDone.current) {
+        buildCheckDone.current = true
+        await loadBuilds(toolIdsRef.current)
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load tools')
     } finally {

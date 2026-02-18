@@ -11,7 +11,6 @@ _(none)_
 - [x] ToolDetail docs tab — loads markdown via API, renders with full CSS, file selector for multi-doc tools — `bcc9c83`
 - [x] Keyboard shortcuts — `/` and `Cmd+K` focus chat from anywhere, header badge + footer hint — `ba41c38`
 - [x] TraceCard polish — copy button, expand/collapse long outputs, prominent plan while running — `500d9d7`
-- [x] Browser extension scaffold — manifest.json V3, background service worker, content script, humanize lib (Bezier mouse/scroll/typing), queue client, task executor, popup UI — `9492910`
 
 ## Backlog
 
@@ -24,11 +23,11 @@ _(none)_
 
 ### Phase 4 – Browser Task Queue
 - [ ] Server-side task queue — API endpoints: `GET /api/browser/tasks`, `POST /api/browser/results/{id}`, `GET /api/browser/queue`
-- [ ] Queue UI — view pending tasks, recent results, dispatch new tasks
+- [ ] Queue UI — view pending tasks, recent results, dispatch new tasks to extension
 
 ### Phase 5 – Stretch
 - [ ] Public routing via `exposure: public` (requires Lantern changes)
 - [ ] Remote registry federation
 
 ## Note
-Browser extension work moved to `~/tools/browser/docs/TASKS.md` — separate autonomous builder handles that.
+Browser extension lives at `~/tools/browser/extension/` — separate builder handles that project.

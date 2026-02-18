@@ -2,63 +2,82 @@
 
 ## Last Run (2026-02-18)
 
-### Completed: Tool deletion — `af8d327`
+### Completed: Schedule creation UI — `a8ae6ea`
 
-Trash button added to the ToolDetail header with a clean inline confirmation flow.
-Deleting unregisters the tool from Lantern and immediately clears the selection +
-refreshes the tool list.
+Full schedule CRUD from within GlowForge — create and delete schedules directly from
+the ToolDetail Schedules tab. Changes take effect after Loom restart.
+
+**Why a Vite plugin?**
+Loom's API only supports `PATCH /schedules/:id` (toggle). Creating/deleting requires
+direct file access. The schedules-plugin handles it the same way build-plugin does for
+build.yaml.
 
 **Changes:**
 
-**`src/api/lantern.ts`:**
-- `deleteProject(id: string): Promise<void>` — `DELETE /api/projects/:name`
+**`src/server/schedules-plugin.ts`** (new):
+- `POST /api/schedules` — validates input, writes new entry to `schedules.yaml`
+- `DELETE /api/schedules/:id` — removes entry from `schedules.yaml`
+- Path: `$LOOM_SCHEDULES_PATH` or `~/tools/Loom/schedules.yaml`
+- Uses js-yaml for parse/dump; writes clean block YAML
+- Validates: id (slugified), schedule (required), action (one of agent/http/shell/prompt/trace)
+- Action-specific validation: agent needs message, http needs url, shell needs command
 
-**`src/components/ToolRegistry/ToolDetail.tsx`:**
-- New prop: `onDeleted?: () => void`
-- New state: `deleteState: 'idle' | 'confirm' | 'deleting'` and `deleteError: string | null`
-- New `handleDelete()` async function — calls `deleteProject(toolId)` → `onDeleted?.()`
-- Header reworked with three render modes:
-  - `idle`: Start/Stop button + 🗑 trash icon button (hover → red)
-  - `confirm`: "Delete?" text + Cancel + Delete buttons (replacing controls)
-  - `deleting`: spinner + "Deleting…" text
-- Error banner: renders between header and tabs if delete fails (dismissable)
+**`vite.config.ts`**:
+- Added `schedulesPlugin()` import and usage
 
-**`src/App.tsx`:**
-- New state: `toolRefreshKey: number`
-- `onDeleted` handler: clears selection, removes manifest from buildManifests, bumps refreshKey
-- Passes `refreshKey={toolRefreshKey}` to ToolList
+**`src/api/loom.ts`**:
+- `createSchedule(input: CreateScheduleInput): Promise<CreateScheduleResult>` — POST to Vite plugin
+- `deleteSchedule(id: string): Promise<void>` — DELETE to Vite plugin
+- `CreateScheduleInput` type: id, schedule, action, message?, url?, command?, prompt?, timezone?, enabled?, timeout?, method?
 
-**`src/components/ToolRegistry/ToolList.tsx`:**
-- New prop: `refreshKey?: number`
-- Extra `useEffect` — calls `load()` immediately when `refreshKey` changes (>0)
-- This gives instant list refresh after deletion vs. waiting up to 10s for next poll
+**`src/components/ToolRegistry/ToolDetail.tsx`**:
+- `SchedulesTab` fully rewritten with:
+  - `showForm` state — collapsible form toggled by "Add" button in section header
+  - `defaultForm(toolId)` helper — pre-fills id as `{toolId}-schedule`, action=agent, enabled=true
+  - `setAction()` — updates form action + auto-renames ID suffix + resets content fields
+  - `handleCreate()` — calls createSchedule(), reloads list, shows 3s success flash
+  - `handleDelete()` — calls deleteSchedule(), removes from local state
+  - Form fields: ID (editable), action buttons (agent/http/shell/prompt), schedule expr with hint,
+    content field (Message/Prompt/URL+Method/Command depending on action), timezone, enabled toggle
+  - Success flash: green bar "created — takes effect after Loom restart"
+  - Error display below submit button
+- `ScheduleRow` gets `deleting?` + `onDelete?` props:
+  - Trash icon button (right of toggle) → inline confirm: [Delete] [✕]
+  - Row fades to 40% opacity while deleting
 
-**UX flow:**
-1. User clicks 🗑 → controls swap to "Delete? [Cancel] [Delete]"
-2. User clicks Delete → spinner appears, `deleteProject()` fires
-3. On success → `onDeleted()` → panel closes, list refreshes immediately
-4. On failure → error banner appears in panel, controls restore to idle
+## UX Flow
+
+**Create schedule:**
+1. Open ToolDetail → Schedules tab
+2. Click "Add" button → dashed form appears
+3. Fill in ID (pre-populated), select action, enter schedule expression
+4. Enter content (message/URL/command/prompt depending on action)
+5. Submit → schedule written to schedules.yaml
+6. Success flash appears, list refreshes, form hides
+
+**Delete schedule:**
+1. Hover schedule row → 🗑 icon appears
+2. Click → [Delete] [✕] confirm buttons appear
+3. Click Delete → row fades, schedule removed from file, row disappears
 
 ## What's Next
 
-Remaining Future Ideas (pick any):
+Remaining Future Ideas:
 
-1. **Schedule creation UI** — form in ToolDetail schedules tab to add a new cron schedule
-   - Loom API: likely `POST /api/schedules` with id/action/schedule/message
-   - UI: collapsible "Add Schedule" form below the existing schedule list
-   - Fields: id, action type, cron expression, message/URL/command
-
-2. **Log viewer tab in ToolDetail** — tail journalctl/process logs
+1. **Log viewer tab in ToolDetail** — tail journalctl/process logs
    - New "Logs" tab in ToolDetail
-   - Vite plugin endpoint: `GET /api/logs/:toolId?lines=200` (shells out to journalctl)
-   - Terminal-style monospace panel with auto-scroll, filter input
+   - Vite plugin: `GET /api/logs/:toolId?lines=200` → shells out to `journalctl -u {toolId} -n 200`
+   - Or read service log files directly from the tool dir
+   - Terminal-style monospace panel with auto-scroll, keyword highlighting, filter input
 
-3. **Chat → wizard integration** — "build me X" pre-fills wizard
-   - Parse Loom chat output for tool creation intents
-   - Pre-fill NewToolModal with name/description from chat context
+2. **Chat → wizard integration** — "build me X" pre-fills wizard
+   - Parse Loom trace output for tool creation intents
+   - Pre-fill NewToolModal name/description from chat context
+   - Would need to identify creation-intent responses in TraceCard
 
 ## Project State
-- `~/tools/GlowForge/` — 28 commits total
+- `~/tools/GlowForge/` — 30 commits total
 - All original TASKS.md items: **DONE**
 - Build system: **DONE**
 - Tool deletion: **DONE**
+- Schedule creation/deletion: **DONE**

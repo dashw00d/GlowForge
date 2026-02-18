@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Schedule toggle in ToolDetail — per-tool schedule view from Loom `/schedules`, toggle inline
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -15,8 +15,13 @@
 - [x] Frontend API client for queue — `src/api/browser.ts` — `507eec5`
 - [x] Browser queue drawer — collapsible panel with live status, dispatch form (action/URL/params/TTL), pending task list, results tab — `ffe2baf`
 - [x] Tool creation wizard — scaffold plugin (lantern.yaml+README), Lantern registration, modal UI with kind/template/tags, + button in registry header — `67e772b`
+- [x] Schedules tab in ToolDetail — per-tool filtered schedule view, inline toggle, collapsible all-schedules, fix listSchedules() array API bug — `14f59ab`
 
 ## Backlog
+_(empty — all planned tasks complete)_
 
-### 3. Declarative Scheduling (Phase 3)
-- [ ] Schedule toggle in ToolDetail — per-tool schedule view from Loom `/schedules`
+### Ideas for future runs
+- Chat integration: "build me a tool called X" → pre-fills wizard
+- Schedule creation UI — form to add a new schedule from ToolDetail
+- Tool deletion — remove button in ToolDetail with Lantern `DELETE /api/projects/:name`
+- Log viewer tab in ToolDetail — tail journalctl for running services

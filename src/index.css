@@ -185,3 +185,50 @@ body {
 .markdown-body > :last-child {
   margin-bottom: 0;
 }
+
+/* ─── Build System Animations ─────────────────────────────────────────────── */
+
+@keyframes build-pulse-blue {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.65 0.18 260 / 0); border-color: oklch(0.65 0.18 260 / 0.6); }
+  50%       { box-shadow: 0 0 8px 2px oklch(0.65 0.18 260 / 0.3); border-color: oklch(0.65 0.18 260); }
+}
+
+@keyframes build-pulse-amber {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.80 0.17 85 / 0); border-color: oklch(0.80 0.17 85 / 0.6); }
+  50%       { box-shadow: 0 0 8px 2px oklch(0.80 0.17 85 / 0.3); border-color: oklch(0.80 0.17 85); }
+}
+
+@keyframes build-progress-shine {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.build-card-building {
+  animation: build-pulse-blue 2s ease-in-out infinite;
+}
+
+.build-card-testing {
+  animation: build-pulse-amber 2s ease-in-out infinite;
+}
+
+.build-progress-bar {
+  background: linear-gradient(
+    90deg,
+    var(--color-accent) 0%,
+    oklch(0.75 0.18 260) 50%,
+    var(--color-accent) 100%
+  );
+  background-size: 200% 100%;
+  animation: build-progress-shine 2s linear infinite;
+}
+
+.build-progress-bar-amber {
+  background: linear-gradient(
+    90deg,
+    var(--color-yellow) 0%,
+    oklch(0.90 0.17 85) 50%,
+    var(--color-yellow) 100%
+  );
+  background-size: 200% 100%;
+  animation: build-progress-shine 2s linear infinite;
+}

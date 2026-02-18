@@ -8,12 +8,13 @@ _(none)_
 - [x] Health strip — full-width Lantern system health bar (daemon/DNS/Caddy/TLS), 30s refresh — `5f62e07`
 - [x] History drawer — collapsible recent traces in chat panel, load into session — `be25460`
 - [x] Schedule manager — collapsible drawer at left panel bottom, toggle schedules live — `4cee45c`
+- [x] ToolDetail docs tab — loads markdown via API, renders with full CSS, file selector for multi-doc tools — `bcc9c83`
 
 ## Backlog
 
 ### Phase 1 – MVP UI (pick next from top)
-- [ ] ToolDetail: docs content loading — call `GET /api/tools/:id/docs` and render markdown inline
 - [ ] Keyboard shortcut — `Cmd+K` or `/` focuses chat input from anywhere in the app
+- [ ] TraceCard: copy artifact output button — clipboard copy for task output blocks
 
 ### Phase 2 – Autonomous Build
 - [ ] "Build me a tool" flow — structured prompt to Loom, show scaffold progress in TraceCard

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { Bot, AlertCircle } from 'lucide-react'
 import { sendPrompt } from '../../api/loom'
 import { ChatInput } from './ChatInput'
+import type { ChatInputHandle } from './ChatInput'
 import { TraceCard } from './TraceCard'
 import { HistoryDrawer } from './HistoryDrawer'
 import type { TraceHistoryEntry } from '../../types'
@@ -16,7 +17,33 @@ export function ChatPanel() {
   const [messages, setMessages] = useState<Message[]>([])
   const [error, setError] = useState<string | null>(null)
   const bottomRef = useRef<HTMLDivElement>(null)
+  const chatInputRef = useRef<ChatInputHandle>(null)
   const loadedIds = new Set(messages.map((m) => m.traceId))
+
+  // Global keyboard shortcut: '/' or Cmd+K focuses the chat input
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement).tagName
+      const isEditable =
+        tag === 'INPUT' ||
+        tag === 'TEXTAREA' ||
+        (e.target as HTMLElement).isContentEditable
+
+      if (e.key === '/' && !isEditable) {
+        e.preventDefault()
+        chatInputRef.current?.focus()
+        return
+      }
+
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
+        chatInputRef.current?.focus()
+      }
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -60,6 +87,19 @@ export function ChatPanel() {
         <h2 className="text-xs font-semibold text-[var(--color-text-secondary)] uppercase tracking-wider">
           Loom Chat
         </h2>
+        <span className="ml-auto flex items-center gap-1 text-[10px]" style={{ color: 'var(--color-text-muted)' }}>
+          <kbd
+            onClick={() => chatInputRef.current?.focus()}
+            className="cursor-pointer px-1.5 py-0.5 rounded font-mono border transition-colors hover:border-[var(--color-accent)] hover:text-[var(--color-accent)]"
+            style={{
+              borderColor: 'var(--color-border)',
+              backgroundColor: 'var(--color-surface-raised)',
+            }}
+            title="Press / or ⌘K to focus chat"
+          >
+            /
+          </kbd>
+        </span>
       </div>
 
       {/* History drawer — collapsible, sits just below header */}
@@ -127,7 +167,7 @@ export function ChatPanel() {
         <div ref={bottomRef} />
       </div>
 
-      <ChatInput onSubmit={handlePrompt} />
+      <ChatInput ref={chatInputRef} onSubmit={handlePrompt} />
     </div>
   )
 }

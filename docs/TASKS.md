@@ -11,6 +11,7 @@ _(none)_
 - [x] ToolDetail docs tab — loads markdown via API, renders with full CSS, file selector for multi-doc tools — `bcc9c83`
 - [x] Keyboard shortcuts — `/` and `Cmd+K` focus chat from anywhere, header badge + footer hint — `ba41c38`
 - [x] TraceCard polish — copy button, expand/collapse long outputs, prominent plan while running — `500d9d7`
+- [x] Browser extension scaffold — manifest.json V3, background service worker, content script, humanize lib (Bezier mouse/scroll/typing), queue client, task executor, popup UI — `9492910`
 
 ## Backlog
 

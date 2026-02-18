@@ -2,59 +2,67 @@
 
 ## Last Run (2026-02-18)
 
-### Completed: Registry integration — `26dc8fd`
+### Completed: Scaffold generates initial build.yaml — `ecbb38a`
 
-The build system is now fully wired into the live UI. This was the key integration task.
+The last build system task is done. The tool creation wizard now writes `build.yaml`
+immediately on scaffold, so new tools appear as BuildCards in the registry right away.
 
-**`ToolList.tsx` changes:**
-- New prop: `onBuildManifestUpdate?: (manifests: Map<string, BuildManifest>) => void`
-- State: `buildManifests: Map<string, BuildManifest>`
-- `loadBuilds(toolIds[])` — fetches all build manifests in parallel via `fetchBuildStatuses()`
-- `load()` now also calls `loadBuilds()` after fetching tools
-- **Adaptive polling**: two separate `useEffect` intervals:
-  - Main: 10s (tool list refresh)
-  - Fast: 3s, only when `hasActiveBuilds` is true (auto-enables/disables)
-- Card rendering logic: `buildManifests.get(tool.id)` with `isActiveBuild()` → renders `BuildCard` instead of `ToolCard`
-- `onRetry` handler: clears the failed manifest, re-loads
-- `onDismiss` handler: removes manifest from map (user hides build card)
-- Header subtitle shows "· N building" when builds are active
+**Changes:**
 
-**`App.tsx` changes:**
-- New state: `buildManifests: Map<string, BuildManifest>`
-- `handleBuildManifestUpdate` (stable via `useCallback`) — passed to ToolList
-- Right panel conditional: `showBuildDetail = selectedManifest != null && isActiveBuild(manifest)` 
-  - True → renders `<BuildDetail toolId onClose onReady onRetry />`
-  - False → renders `<ToolDetail toolId onClose />`
-- `handleBuildReady`: clears manifest from map → panel transitions to ToolDetail automatically
+**`src/server/scaffold-plugin.ts`:**
+- New `generateBuildYaml(input, slug)` function — produces a complete `build.yaml`
+  with `status: pending`, ISO `started_at`, `progress: 0`, all 5 standard phases
+  (scaffold/core/api/test/register), and a seed log entry
+- Route handler now writes `build.yaml` to `~/tools/{name}/build.yaml` after README.md
+- Response includes `build_yaml_path` (the full path written)
 
-**Full data flow:**
-```
-Loom writes build.yaml → ToolList polls (3s) → fetchBuildStatuses() →
-setBuildManifests() → onBuildManifestUpdate() → App.setBuildManifests() →
-ToolCard → BuildCard (in list) + BuildDetail (in right panel)
-```
+**`src/api/lantern.ts`:**
+- `ScaffoldResult.build_yaml_path?: string` added to the type
+
+**`src/components/ToolRegistry/NewToolModal.tsx`:**
+- Creation progress now shows `📋 Build manifest created (pending — will appear as BuildCard in registry)` if `scaffold.build_yaml_path` is present
+
+**`docs/LOOM-BUILDER.md` (new):**
+- Complete reference for Loom builder agents:
+  - Status lifecycle (`pending → building → testing → ready`)
+  - Full build.yaml schema with annotated examples
+  - Update protocol (what to do after every phase/step)
+  - Progress calculation formula + worked examples
+  - Minimal start template (first thing agent does)
+  - Resume-on-failure pattern
+  - GlowForge API endpoints for reading/writing
+
+## Build System — Fully Complete ✅
+
+All 5 build system tasks are done:
+1. ✅ `088812b` — build.yaml reader + types
+2. ✅ `f0f88ca` — BuildCard component
+3. ✅ `0b68483` — BuildDetail view
+4. ✅ `26dc8fd` — Registry integration
+5. ✅ `ecbb38a` — Scaffold plugin update + Loom docs
 
 ## What's Next
 
-### Scaffold plugin update (task 5 — last build system task)
-When a tool is created via the GlowForge wizard, also write an initial `build.yaml` with `status: pending`. This way Loom builder agents immediately have a file to update.
+The backlog only has **Future Ideas** left — nothing urgent. Possible next tasks:
 
-**Changes to `src/server/scaffold-plugin.ts`:**
-1. In the `POST /api/scaffold` handler, after writing `lantern.yaml` + `README.md`, also write `build.yaml` with:
-   - `tool_id: {slug}`
-   - `name: {displayName}`
-   - `prompt: {description}` (placeholder until Loom overwrites it)
-   - `status: pending`
-   - `started_at: {now}`
-   - `progress: 0`
-   - Standard phases array (scaffold/core/api/test/register)
-   - Empty log
-2. Return `build_yaml_path` in the response
-3. The NewToolModal's "creating" step will show immediately as a build in progress
+### Candidate next tasks
+1. **Schedule creation UI** — form to add a new schedule from ToolDetail (currently only toggle exists)
+2. **Tool deletion** — remove button with Lantern `DELETE /api/projects/:name` + confirmation
+3. **Log viewer tab in ToolDetail** — tail journalctl/process logs for running services
+4. **Chat → wizard integration** — "build me a tool called X" pre-fills the new tool form
+5. **Build.yaml write API auth** — add a simple token or localhost-only guard to `POST /api/build/:toolId/write`
 
-This means when you create a tool, it appears as a BuildCard right away — Loom then updates build.yaml as it works.
+### Or declare v1 done
+All planned features are implemented. GlowForge has:
+- ✅ Two-column layout with health strip
+- ✅ Tool registry with search, ToolDetail, docs tab, schedules tab
+- ✅ New tool wizard with scaffolding + Lantern registration
+- ✅ Live build system (BuildCard, BuildDetail, registry integration)
+- ✅ Loom chat panel with trace history, keyboard shortcuts
+- ✅ Schedule manager with live toggle
+- ✅ Browser task queue with extension integration
 
 ## Project State
-- `~/tools/GlowForge/` — 25 commits total
-- Build System: types/API ✅ | BuildCard ✅ | BuildDetail ✅ | Registry integration ✅ | Scaffold update ⬜
-- All other phases complete ✅
+- `~/tools/GlowForge/` — 26 commits total
+- All original tasks from TASKS.md: **DONE**
+- Build system: **DONE** (all 5 phases)

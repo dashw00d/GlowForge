@@ -47,9 +47,9 @@ Full spec: `docs/BUILD-SYSTEM.md`
 - [x] onReady callback clears manifest → ToolDetail takes over; Dismiss button per card
 - [x] Header shows "N building" count alongside running count
 
-#### 5. Loom builder prompt update
-- [ ] Update tool creation wizard scaffold plugin to generate initial build.yaml
-- [ ] Document build.yaml update pattern for Loom builder agents
+#### 5. Loom builder prompt update ✅ `ecbb38a`
+- [x] Update tool creation wizard scaffold plugin to generate initial build.yaml
+- [x] Document build.yaml update pattern for Loom builder agents (`docs/LOOM-BUILDER.md`)
 
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard

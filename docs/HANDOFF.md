@@ -2,58 +2,57 @@
 
 ## Last Run (2026-02-18)
 
-### Completed: Tool restart button — `bc8fe35`
+### Completed: Tool health history graph — `776b42c`
 
-One-click restart for running services, right in the ToolDetail header.
-`restartTool()` was already in `src/api/lantern.ts` — just needed the UI.
+Added a lightweight sparkline-style history of health checks inside the ToolDetail
+Overview tab. This gives a quick visual timeline of recent health status without
+adding any new pages.
 
 **Changes (all in `src/components/ToolRegistry/ToolDetail.tsx`):**
 
-- `Repeat2` added to lucide-react imports
-- `restartTool` added to lantern imports  
-- `restarting: boolean` state (alongside `toggling`)
-- `handleRestart()` async function:
-  1. Sets `restarting = true`
-  2. Calls `restartTool(toolId)` — `POST /api/projects/:name/restart`
-  3. Waits 1.2s (gives the service time to come back up)
-  4. Refetches `getTool()` + `getProjectHealth()` to update the UI
-  5. Sets `restarting = false`
-- **Restart button** in idle controls, between Start/Stop and Trash:
-  - Visible **only when tool is running** (`isRunning === true`) — no restart when stopped
-  - Disabled when `restarting || toggling` (prevents double-actions)
-  - Normal: muted `Repeat2` icon, hover → accent blue  
-  - While restarting: `animate-spin` on `Repeat2` + `cursor-wait`
+- New state: `healthHistory: Array<{ status, ts }>` (max 20 samples)
+- `refreshHealth()` helper:
+  - Calls `getProjectHealth()` → updates `health`
+  - Appends `{status, ts}` into `healthHistory`
+  - Trims array to last 20 entries
+- Initial load now seeds health history with the first sample
+- New `useEffect` interval: polls health every 15s while ToolDetail is open
 
-**Button order in header (running tool):**
-```
-[■ Stop]  [↺ Restart]  [🗑]  [✕]
-```
-**Button order in header (stopped tool):**
-```
-[▶ Start]  [🗑]  [✕]
-```
+**Overview tab updates:**
+- `OverviewTab` now receives `history` prop
+- New `Health history` section renders a row of tiny dots:
+  - green = healthy
+  - red = unhealthy/error
+  - yellow = unreachable
+  - gray = unknown
+- Tooltip on each dot shows status + timestamp
+- Text label shows last update age: `updated 12s ago`
+
+## UX
+
+When you open a tool:
+- Health history line begins with the first sample
+- Every 15s, a new dot appears (max 20)
+- Quick at-a-glance trend: green streaks vs red/yellow spikes
 
 ## Project State
-- `~/tools/GlowForge/` — 40 commits total
-- All core features: **DONE**
-- Tool lifecycle: Start / Stop / **Restart** / Delete — **complete**
+- `~/tools/GlowForge/` — 41 commits total
+- Core features + post-v1 polish are **complete**
+- Health history sparkline added in ToolDetail overview
 
 ## What's Next
 
-The backlog is nearly empty. Remaining Future Ideas:
+Remaining Future Ideas:
 
 1. **Chat integration** — "build me a tool called X" → pre-fills wizard
-   - Parse intent from Loom chat response
-   - Complex, uncertain UX value
+   - Requires intent parsing from Loom chat output
+   - UX unclear
 
-2. **Tool health history graph** — sparkline over time
-   - Would need to store health check results in memory or localStorage
-   - Show in ToolCard and ToolDetail overview
-   - Interesting engineering but not urgent
+2. **Multi-tool compare view** — side-by-side ToolDetail panels
+   - Requires layout change in App.tsx
+   - Useful for debugging similar tools
 
-3. **Multi-tool compare view** — side-by-side ToolDetail panels
-   - Would need layout changes in App.tsx
-   - Useful for debugging two similar tools
+3. **Tool status timeline panel** — detailed log of state transitions
+   - Could capture health status deltas over time and render in a dedicated tab
 
-**The platform is feature-complete for daily use.** Future runs should focus on polish,
-bugs, or entirely new integrations rather than adding more features.
+The platform remains feature-complete; future work is optional polish only.

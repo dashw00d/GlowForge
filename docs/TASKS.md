@@ -67,7 +67,10 @@ Full spec: `docs/BUILD-SYSTEM.md`
 ### Completed Future Ideas (cont.)
 - [x] Tool restart button — Repeat2 icon in ToolDetail header, running tools only, spins while restarting — `bc8fe35`
 
+### Completed Future Ideas (cont.)
+- [x] Tool health history graph — 15s poll of project health, status dot sparkline in ToolDetail — `776b42c`
+
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
-- Tool health history graph — sparkline of health check results over time
 - Multi-tool compare view — side-by-side ToolDetail panels
+- Tool status timeline panel — detailed log of state transitions

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] BuildCard component — compact card with progress bar, phase checklist, visual states (pending/building/testing/failed)
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -27,11 +27,11 @@ Full spec: `docs/BUILD-SYSTEM.md`
 - [x] `src/api/build.ts` — `fetchBuildStatus()`, `buildSummary()`, `computeProgress()`, helpers
 - [x] Vite plugin — `GET /api/build/:toolId`, `/exists`, `/write` routes with js-yaml parsing
 
-#### 2. BuildCard component
-- [ ] `BuildCard.tsx` — compact card variant with progress bar, phase checklist, status text
-- [ ] Visual states — faded/dashed (pending), pulsing glow (building), amber (testing), red (failed)
-- [ ] Progress bar — computed from phase/step completion ratios
-- [ ] Current step name shown below progress bar
+#### 2. BuildCard component ✅ `f0f88ca`
+- [x] `BuildCard.tsx` — compact card variant with progress bar, phase checklist, status text
+- [x] Visual states — faded/dashed (pending), pulsing glow (building), amber (testing), red (failed)
+- [x] Progress bar — animated shine for building/testing, solid green/red for ready/failed
+- [x] Current step name shown below progress bar, phase symbols (✓/◐/○/✗)
 
 #### 3. BuildDetail view
 - [ ] `BuildDetail.tsx` — expanded view: full phase list with step-level checkboxes

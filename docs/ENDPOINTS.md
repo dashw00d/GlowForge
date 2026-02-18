@@ -186,7 +186,7 @@ These endpoints are served by Vite dev server plugins — no external dependency
 |-------|--------|---------|--------|
 | `/api/build/{toolId}/exists` | GET | Check if build.yaml exists | ✅ Returns `{exists: bool}` |
 | `/api/build/{toolId}` | GET | Read parsed build.yaml | ✅ Returns BuildManifest or 404 |
-| `/api/build/{toolId}` | POST | Write/update build.yaml | ✅ For Loom builder agent |
+| `/api/build/{toolId}/write` | POST | Write/update build.yaml | ✅ For Loom builder agent |
 
 ### Scaffold (`scaffold-plugin.ts` — assumed)
 
@@ -230,7 +230,7 @@ Extension connects to GlowForge via URL configured in popup.
 | `main.py` `/browser-result` | ← callback FROM GlowForge | POST | Receive execution results |
 
 **Environment variables:**
-- `GLOWFORGE_URL` — default `http://localhost:5274`
+- `GLOWFORGE_URL` — default `https://glowforge.glow` (was `http://localhost:5274`, fixed H3)
 - `BROWSER_CALLBACK_URL` — default `http://localhost:8410/browser-result`
 
 ---

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Tool status timeline panel — new ToolDetail tab showing health status transitions over time
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`

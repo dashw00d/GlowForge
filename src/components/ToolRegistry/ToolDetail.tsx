@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star, Repeat2 } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star, Repeat2, History } from 'lucide-react'
 import { isPinned, togglePin, pinKey } from '../../lib/pinnedEndpoints'
 import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, restartTool, LANTERN_BASE } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
@@ -17,7 +17,7 @@ interface Props {
   onDeleted?: () => void
 }
 
-type Tab = 'overview' | 'endpoints' | 'docs' | 'schedules' | 'logs'
+type Tab = 'overview' | 'endpoints' | 'docs' | 'schedules' | 'logs' | 'timeline'
 
 type DeleteState = 'idle' | 'confirm' | 'deleting'
 
@@ -293,7 +293,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       {tool && (
         <>
           <div className="flex border-b border-[var(--color-border)] shrink-0 overflow-x-auto">
-            {(['overview', 'endpoints', 'docs', 'schedules', 'logs'] as Tab[]).map((t) => (
+            {(['overview', 'endpoints', 'docs', 'schedules', 'logs', 'timeline'] as Tab[]).map((t) => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -309,6 +309,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
                 {t === 'docs' && <FileText className="size-3 inline mr-1" />}
                 {t === 'schedules' && <Calendar className="size-3 inline mr-1" />}
                 {t === 'logs' && <ScrollText className="size-3 inline mr-1" />}
+                {t === 'timeline' && <History className="size-3 inline mr-1" />}
                 {t}
               </button>
             ))}
@@ -322,6 +323,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
             {tab === 'docs' && <DocsTab toolId={toolId} tool={tool} />}
             {tab === 'schedules' && <SchedulesTab toolId={toolId} toolName={tool.name} />}
             {tab === 'logs' && <LogsTab toolId={toolId} />}
+            {tab === 'timeline' && <TimelineTab history={healthHistory} />}
           </div>
         </>
       )}
@@ -411,6 +413,57 @@ function OverviewTab({
           </div>
         </Section>
       )}
+    </div>
+  )
+}
+
+function formatAgo(ts: number): string {
+  const secs = Math.max(0, Math.round((Date.now() - ts) / 1000))
+  if (secs < 60) return `${secs}s ago`
+  if (secs < 3600) return `${Math.floor(secs / 60)}m ago`
+  if (secs < 86400) return `${Math.floor(secs / 3600)}h ago`
+  return `${Math.floor(secs / 86400)}d ago`
+}
+
+function TimelineTab({ history }: { history: Array<{ status: ProjectHealthStatus['status']; ts: number }> }) {
+  if (history.length === 0) {
+    return <p className="text-xs text-[var(--color-text-muted)]">No timeline entries yet.</p>
+  }
+
+  // Only show transitions (status changes)
+  const transitions = history.reduce<Array<{ status: ProjectHealthStatus['status']; ts: number }>>(
+    (acc, item) => {
+      if (acc.length === 0 || acc[acc.length - 1].status !== item.status) {
+        acc.push(item)
+      }
+      return acc
+    },
+    []
+  )
+
+  const STATUS_DOT: Record<ProjectHealthStatus['status'], string> = {
+    healthy: 'bg-[var(--color-green)]',
+    unhealthy: 'bg-[var(--color-red)]',
+    unreachable: 'bg-[var(--color-yellow)]',
+    error: 'bg-[var(--color-red)]',
+    unknown: 'bg-[var(--color-text-muted)]',
+  }
+
+  const entries = [...transitions].reverse()
+
+  return (
+    <div className="space-y-2">
+      {entries.map((h, i) => (
+        <div key={`${h.ts}-${i}`} className="flex items-center gap-2 text-xs">
+          <span className={cn('inline-block size-2 rounded-full', STATUS_DOT[h.status])} />
+          <span className="text-[var(--color-text-primary)] font-medium capitalize">
+            {h.status}
+          </span>
+          <span className="text-[var(--color-text-muted)] ml-auto">
+            {new Date(h.ts).toLocaleTimeString()} · {formatAgo(h.ts)}
+          </span>
+        </div>
+      ))}
     </div>
   )
 }

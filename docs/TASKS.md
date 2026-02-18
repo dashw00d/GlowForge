@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Endpoint tester — inline test form per endpoint row in EndpointsTab, fires real request, shows status/headers/body
+_(none)_
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`
@@ -55,8 +55,11 @@ Full spec: `docs/BUILD-SYSTEM.md`
 - [x] Tool deletion — trash button in ToolDetail header with inline confirm, DELETE /api/projects/:name — `af8d327`
 - [x] Schedule creation UI — collapsible "Add" form in Schedules tab, delete per row, Vite plugin POST/DELETE to schedules.yaml — `a8ae6ea`
 - [x] Log viewer tab — SSE streaming from Lantern /api/projects/:name/logs, filter, line coloring, auto-scroll — `fadd514`
+- [x] Endpoint tester — inline FlaskConical test form per endpoint, method/path/query/body/headers, response status+headers+body+copy — `5992f01`
+- [x] Browser queue callbacks — callback_url, source, correlation_id fields; GET /api/browser/results/:id; fire-and-forget webhooks — `33083e1`
 
 ### Future Ideas
 - Chat integration: "build me a tool called X" → pre-fills wizard
 - Tool restart button in ToolDetail (POST /api/projects/:name/restart)
-- Endpoint testing — click an endpoint in the Endpoints tab to fire a test request
+- Pinned endpoints — star/bookmark endpoints for quick access across tools
+- Dark/light theme toggle in header

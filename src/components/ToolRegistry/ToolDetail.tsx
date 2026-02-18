@@ -30,6 +30,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   const [tab, setTab] = useState<Tab>('overview')
   const [toggling, setToggling] = useState(false)
   const [restarting, setRestarting] = useState(false)
+  const [actionError, setActionError] = useState<string | null>(null)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
 
@@ -75,6 +76,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   async function handleToggle() {
     if (!tool) return
     setToggling(true)
+    setActionError(null)
     try {
       if (tool.status === 'running') {
         await deactivateTool(tool.name)
@@ -87,6 +89,8 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       ])
       setTool(t)
       setHealth(h)
+    } catch (e) {
+      setActionError(e instanceof Error ? e.message : 'Action failed')
     } finally {
       setToggling(false)
     }
@@ -97,6 +101,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   async function handleRestart() {
     if (!tool) return
     setRestarting(true)
+    setActionError(null)
     try {
       await restartTool(tool.name)
       // Brief pause — give the service a moment to restart before polling state
@@ -108,7 +113,7 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       setTool(t)
       setHealth(h)
     } catch (e) {
-      console.error('Restart failed:', e)
+      setActionError(e instanceof Error ? e.message : 'Restart failed')
     } finally {
       setRestarting(false)
     }
@@ -268,6 +273,27 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
           </button>
         </div>
       </div>
+
+      {/* Action error banner (start/stop/restart failures) */}
+      {actionError && (
+        <div
+          className="flex items-center gap-2 px-4 py-2 text-xs border-b"
+          style={{
+            backgroundColor: 'var(--color-red-subtle)',
+            borderColor: 'var(--color-red)',
+            color: 'var(--color-red)',
+          }}
+        >
+          <AlertCircle className="size-3 shrink-0" />
+          <span className="flex-1">{actionError}</span>
+          <button
+            onClick={() => setActionError(null)}
+            className="shrink-0 opacity-70 hover:opacity-100"
+          >
+            <X className="size-3" />
+          </button>
+        </div>
+      )}
 
       {/* Delete error banner */}
       {deleteError && (

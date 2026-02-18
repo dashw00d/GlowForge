@@ -4,39 +4,22 @@ Source: `QA-REPORT.md` from 2026-02-18 QA run.
 
 ## Fix Order
 
-### 1. [CRITICAL] Loom proxy port — `vite.config.ts`
-Change `/loom-api` proxy target from `41000` to dynamic (read from Lantern) or `41002`.
-**Kills:** Loom Chat, Schedules tab, Schedules drawer, Jobs panel, History
+### 1. ✅ FIXED — Loom proxy port — `c3c8b18`
+### 2. ✅ FIXED — Lantern lifecycle API paths — `29f4372`
+### 3. ✅ FIXED — Log streaming 406 — `34fbe3f`
+### 4. ✅ FIXED — Build polling spam — `ea7d0f1`
+### 5. ✅ FIXED — Filter counter mismatch — `9dd3b8c`
 
-### 2. [HIGH] Lantern lifecycle API paths — `src/api/lantern.ts`
-`restartTool()` / `activateTool()` / `deactivateTool()` call `/api/projects/{id}/restart|activate|deactivate`.
-Lantern tools are at `/api/tools/{id}`. Find correct Lantern mutation endpoints and fix.
-**Kills:** Start/Stop/Restart buttons on all tools (fail silently with 404)
-
-### 3. [HIGH] Log streaming 406 — `ToolDetail.tsx` or wherever logs are fetched
-Add `Accept: text/event-stream` header to the EventSource/fetch for log streaming.
-Route: `/lantern-api/api/projects/{id}/logs` → returns 406 without correct header.
-**Kills:** Logs tab shows "offline" for all tools
-
-### 4. [MEDIUM] Build polling spam — wherever build status is fetched
-`/api/build/{id}` returns 404 for tools without build.yaml (expected).
-But UI polls this for ALL 9 tools every 10s → 404 flood in console.
-Fix: Only poll `/api/build/{id}/exists` first, only fetch full build if exists=true.
-Or: Catch 404 silently without console.error.
-
-### 5. [MEDIUM] Filter counter mismatch
-When filter is active, sidebar says "2/9 running" — misleading.
-Should say "5/9 running" (system total) or "2 matching" (filtered count).
-
-### 6. [LOW] Lifecycle button feedback
+### 6. [LOW] Lifecycle button feedback — NOT FIXED
 No loading state on Start/Stop/Restart. Add spinner while action is in progress.
 Show error toast if action fails (currently silent).
+File: `src/components/ToolRegistry/ToolDetail.tsx` or ToolCard.tsx
 
-### 7. [LOW] Jobs endpoint path
+### 7. [LOW] Jobs endpoint path — NOT FIXED
 UI calls `/loom-api/jobs` → Loom has no `/jobs` endpoint (404).
 Should call `/loom-api/history` instead.
+File: wherever Jobs/History is fetched — check `src/components/LoomChat/JobPanel.tsx`
 
-## Rules
-- Fix one issue per commit
-- After ALL fixes: run the QA test suite again
-- Report new findings
+## After fixes 6+7 → SCOUT PHASE
+Test everything against `https://glowforge.glow` with curl.
+Report new findings. If clean → write ALL CLEAR in HANDOFF.md.

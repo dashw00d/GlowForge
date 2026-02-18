@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-_(none)_
+- [ ] Tool creation wizard — "New Tool" modal: name/description/kind/template, scaffold lantern.yaml, register with Lantern
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`

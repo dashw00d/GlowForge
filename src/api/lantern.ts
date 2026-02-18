@@ -97,3 +97,71 @@ export async function getLoomBaseUrl(): Promise<string> {
   // Fallback: Loom's default port
   return 'http://127.0.0.1:8410'
 }
+
+// ─── Tool Creation ────────────────────────────────────────────────────────────
+
+export interface LanternTemplate {
+  name: string
+  description: string
+  type: string
+  run_cmd: string | null
+  builtin: boolean
+}
+
+export interface CreateProjectInput {
+  name: string
+  description?: string
+  kind?: string
+  type?: string
+  path?: string
+  tags?: string[]
+}
+
+/** Register a new project with Lantern (does not write files). */
+export async function createProject(input: CreateProjectInput): Promise<ToolSummary> {
+  const r = await req<ApiResponse<ToolSummary>>('POST', '/api/projects', input)
+  return r.data
+}
+
+/** Trigger Lantern to refresh discovery for a project (re-scan endpoints, docs). */
+export async function refreshProjectDiscovery(name: string): Promise<void> {
+  await req('POST', `/api/projects/${encodeURIComponent(name)}/discovery/refresh`)
+}
+
+/** List available project templates from Lantern. */
+export async function listTemplates(): Promise<LanternTemplate[]> {
+  const r = await req<ApiResponse<LanternTemplate[]>>('GET', '/api/templates')
+  return r.data
+}
+
+/** Scaffold a tool via the GlowForge dev server (writes lantern.yaml + README). */
+export interface ScaffoldInput {
+  name: string
+  displayName?: string
+  description?: string
+  kind?: string
+  template?: string
+  customPath?: string
+  tags?: string[]
+}
+
+export interface ScaffoldResult {
+  ok: boolean
+  name: string
+  path: string
+  yaml_path: string
+  readme_path: string
+}
+
+export async function scaffoldTool(input: ScaffoldInput): Promise<ScaffoldResult> {
+  const res = await fetch('/api/scaffold', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ error: res.statusText }))
+    throw new Error((err as { error?: string }).error || `Scaffold failed: HTTP ${res.status}`)
+  }
+  return res.json() as Promise<ScaffoldResult>
+}

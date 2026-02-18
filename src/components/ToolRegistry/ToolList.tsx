@@ -1,10 +1,11 @@
 import { useEffect, useState, useCallback } from 'react'
-import { RefreshCw, Search } from 'lucide-react'
+import { RefreshCw, Search, Plus } from 'lucide-react'
 import { listTools } from '../../api/lantern'
 import { ToolCard } from './ToolCard'
 import { Spinner } from '../ui/Spinner'
 import { ScheduleManager } from './ScheduleManager'
 import { BrowserQueueDrawer } from './BrowserQueueDrawer'
+import { NewToolModal } from './NewToolModal'
 import type { ToolSummary } from '../../types'
 
 interface Props {
@@ -17,6 +18,7 @@ export function ToolList({ selectedId, onSelect }: Props) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
+  const [showNewTool, setShowNewTool] = useState(false)
 
   const load = useCallback(async () => {
     setError(null)
@@ -62,13 +64,22 @@ export function ToolList({ selectedId, onSelect }: Props) {
             </p>
           )}
         </div>
-        <button
-          onClick={load}
-          className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors p-1 rounded"
-          title="Refresh"
-        >
-          <RefreshCw className="size-3" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowNewTool(true)}
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-accent)] transition-colors p-1 rounded"
+            title="New Tool"
+          >
+            <Plus className="size-3" />
+          </button>
+          <button
+            onClick={load}
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)] transition-colors p-1 rounded"
+            title="Refresh"
+          >
+            <RefreshCw className="size-3" />
+          </button>
+        </div>
       </div>
 
       {/* Search */}
@@ -120,6 +131,18 @@ export function ToolList({ selectedId, onSelect }: Props) {
 
       {/* Browser queue drawer — below schedule manager */}
       <BrowserQueueDrawer />
+
+      {/* New Tool modal — rendered outside panel flow */}
+      {showNewTool && (
+        <NewToolModal
+          onClose={() => setShowNewTool(false)}
+          onCreated={(name) => {
+            setShowNewTool(false)
+            load()
+            onSelect(name)
+          }}
+        />
+      )}
     </div>
   )
 }

@@ -1,7 +1,7 @@
 # GlowForge Tasks
 
 ## In Progress
-- [ ] Tool status timeline panel — new ToolDetail tab showing health status transitions over time
+- [ ] Tool comparison notes — per-tool notes persisted in localStorage, editable in Overview tab
 
 ## Done
 - [x] React/Vite scaffold — two-column layout, Tailwind v4, shadcn-style components, full API clients — `bdd938c`

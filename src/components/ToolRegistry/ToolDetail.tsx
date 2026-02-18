@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
-import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star, Repeat2, History } from 'lucide-react'
+import { X, ExternalLink, Zap, FileText, Activity, Play, Square, AlertCircle, Calendar, MessageSquare, Globe, Terminal, Layers, ChevronDown, ChevronUp, Trash2, Plus, Check, ScrollText, RefreshCw, Search, Clipboard, ClipboardCheck, FlaskConical, Star, Repeat2, History, Pencil, StickyNote } from 'lucide-react'
 import { isPinned, togglePin, pinKey } from '../../lib/pinnedEndpoints'
+import { loadNote, saveNote } from '../../lib/toolNotes'
 import { getTool, getProjectHealth, activateTool, deactivateTool, getToolDocs, deleteProject, restartTool, LANTERN_BASE } from '../../api/lantern'
 import type { DocFile } from '../../api/lantern'
 import { listSchedules, toggleSchedule, createSchedule, deleteSchedule } from '../../api/loom'
@@ -340,6 +341,10 @@ function OverviewTab({
   health: ProjectHealthStatus | null
   history: Array<{ status: ProjectHealthStatus['status']; ts: number }>
 }) {
+  const [note, setNote] = useState(() => loadNote(tool.id))
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState('')
+
   const last = history.length > 0 ? history[history.length - 1] : null
   const ageSec = last ? Math.round((Date.now() - last.ts) / 1000) : null
 
@@ -413,6 +418,67 @@ function OverviewTab({
           </div>
         </Section>
       )}
+
+      <Section title="Notes">
+        {editing ? (
+          <div className="space-y-2">
+            <textarea
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              rows={3}
+              placeholder="Add notes, TODOs, or context for this tool..."
+              className="w-full text-xs font-sans rounded px-2 py-1.5 resize-none outline-none"
+              style={{
+                backgroundColor: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text-primary)',
+              }}
+              autoFocus
+            />
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  saveNote(tool.id, draft)
+                  setNote(draft.trim())
+                  setEditing(false)
+                }}
+                className="px-2 py-0.5 rounded text-[10px] font-medium"
+                style={{ backgroundColor: 'var(--color-accent)', color: '#fff' }}
+              >
+                Save
+              </button>
+              <button
+                onClick={() => { setEditing(false); setDraft('') }}
+                className="px-2 py-0.5 rounded text-[10px] text-[var(--color-text-muted)] hover:text-[var(--color-text-secondary)]"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start gap-2">
+            {note ? (
+              <>
+                <StickyNote className="size-3.5 text-[var(--color-yellow)] shrink-0 mt-0.5" />
+                <p className="text-xs text-[var(--color-text-secondary)] whitespace-pre-wrap flex-1 min-w-0">
+                  {note}
+                </p>
+              </>
+            ) : (
+              <p className="text-xs text-[var(--color-text-muted)] italic flex-1">
+                No notes yet. Click edit to add one.
+              </p>
+            )}
+            <button
+              onClick={() => { setDraft(note); setEditing(true) }}
+              title="Edit note"
+              className="p-0.5 rounded text-[var(--color-text-muted)] hover:text-[var(--color-accent)] hover:bg-[var(--color-accent-subtle)] transition-colors shrink-0"
+            >
+              <Pencil className="size-3" />
+            </button>
+          </div>
+        )}
+      </Section>
     </div>
   )
 }

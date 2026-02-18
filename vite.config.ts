@@ -32,7 +32,7 @@ export default defineConfig({
         rewrite: (p) => p.replace(/^\/lantern-api/, ''),
       },
       '/loom-api': {
-        target: 'http://127.0.0.1:41000',
+        target: 'http://127.0.0.1:41002',
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/loom-api/, ''),
       },

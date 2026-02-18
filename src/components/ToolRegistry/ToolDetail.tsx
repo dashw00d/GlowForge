@@ -36,7 +36,8 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
 
   async function refreshHealth() {
     try {
-      const h = await getProjectHealth().then((all) => all[toolId] ?? null)
+      // Health is keyed by display name (e.g. "GhostGraph"), not lowercase id
+      const h = await getProjectHealth().then((all) => all[tool?.name ?? toolId] ?? null)
       setHealth(h)
       setHealthHistory((prev) => {
         const status = h?.status ?? 'unknown'
@@ -50,11 +51,13 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
 
   useEffect(() => {
     setLoading(true)
+    // Fetch tool + full health map in parallel; look up health by display name
     Promise.all([
       getTool(toolId),
-      getProjectHealth().then((all) => all[toolId] ?? null),
+      getProjectHealth(),
     ])
-      .then(([t, h]) => {
+      .then(([t, allHealth]) => {
+        const h = allHealth[t.name] ?? null
         setTool(t)
         setHealth(h)
         setHealthHistory((prev) => {
@@ -83,12 +86,12 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       } else {
         await activateTool(tool.name)
       }
-      const [t, h] = await Promise.all([
+      const [t, allHealth] = await Promise.all([
         getTool(toolId),
-        getProjectHealth().then((all) => all[toolId] ?? null),
+        getProjectHealth(),
       ])
       setTool(t)
-      setHealth(h)
+      setHealth(allHealth[t.name] ?? null)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Action failed')
     } finally {
@@ -106,12 +109,12 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       await restartTool(tool.name)
       // Brief pause — give the service a moment to restart before polling state
       await new Promise((r) => setTimeout(r, 1200))
-      const [t, h] = await Promise.all([
+      const [t, allHealth] = await Promise.all([
         getTool(toolId),
-        getProjectHealth().then((all) => all[toolId] ?? null),
+        getProjectHealth(),
       ])
       setTool(t)
-      setHealth(h)
+      setHealth(allHealth[t.name] ?? null)
     } catch (e) {
       setActionError(e instanceof Error ? e.message : 'Restart failed')
     } finally {

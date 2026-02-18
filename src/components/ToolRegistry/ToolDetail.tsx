@@ -24,12 +24,27 @@ type DeleteState = 'idle' | 'confirm' | 'deleting'
 export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   const [tool, setTool] = useState<IToolDetail | null>(null)
   const [health, setHealth] = useState<ProjectHealthStatus | null>(null)
+  const [healthHistory, setHealthHistory] = useState<Array<{ status: ProjectHealthStatus['status']; ts: number }>>([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
   const [toggling, setToggling] = useState(false)
   const [restarting, setRestarting] = useState(false)
   const [deleteState, setDeleteState] = useState<DeleteState>('idle')
   const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  async function refreshHealth() {
+    try {
+      const h = await getProjectHealth().then((all) => all[toolId] ?? null)
+      setHealth(h)
+      setHealthHistory((prev) => {
+        const status = h?.status ?? 'unknown'
+        const next = [...prev, { status, ts: Date.now() }]
+        return next.length > 20 ? next.slice(next.length - 20) : next
+      })
+    } catch (e) {
+      console.error('Health refresh failed:', e)
+    }
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -40,9 +55,20 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
       .then(([t, h]) => {
         setTool(t)
         setHealth(h)
+        setHealthHistory((prev) => {
+          const status = h?.status ?? 'unknown'
+          const next = [...prev, { status, ts: Date.now() }]
+          return next.length > 20 ? next.slice(next.length - 20) : next
+        })
       })
       .catch(console.error)
       .finally(() => setLoading(false))
+  }, [toolId])
+
+  // Poll health every 15s while the detail panel is open
+  useEffect(() => {
+    const id = setInterval(refreshHealth, 15_000)
+    return () => clearInterval(id)
   }, [toolId])
 
   async function handleToggle() {
@@ -289,7 +315,9 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
           </div>
 
           <div className="flex-1 overflow-y-auto p-4">
-            {tab === 'overview' && <OverviewTab tool={tool} health={health} />}
+            {tab === 'overview' && (
+              <OverviewTab tool={tool} health={health} history={healthHistory} />
+            )}
             {tab === 'endpoints' && <EndpointsTab tool={tool} />}
             {tab === 'docs' && <DocsTab toolId={toolId} tool={tool} />}
             {tab === 'schedules' && <SchedulesTab toolId={toolId} toolName={tool.name} />}
@@ -301,7 +329,26 @@ export function ToolDetail({ toolId, onClose, onDeleted }: Props) {
   )
 }
 
-function OverviewTab({ tool, health }: { tool: IToolDetail; health: ProjectHealthStatus | null }) {
+function OverviewTab({
+  tool,
+  health,
+  history,
+}: {
+  tool: IToolDetail
+  health: ProjectHealthStatus | null
+  history: Array<{ status: ProjectHealthStatus['status']; ts: number }>
+}) {
+  const last = history.length > 0 ? history[history.length - 1] : null
+  const ageSec = last ? Math.round((Date.now() - last.ts) / 1000) : null
+
+  const STATUS_DOT: Record<ProjectHealthStatus['status'], string> = {
+    healthy: 'bg-[var(--color-green)]',
+    unhealthy: 'bg-[var(--color-red)]',
+    unreachable: 'bg-[var(--color-yellow)]',
+    error: 'bg-[var(--color-red)]',
+    unknown: 'bg-[var(--color-text-muted)]',
+  }
+
   return (
     <div className="space-y-4">
       <Section title="Details">
@@ -311,6 +358,27 @@ function OverviewTab({ tool, health }: { tool: IToolDetail; health: ProjectHealt
         {tool.run_cmd && <Row label="Command" value={tool.run_cmd} mono />}
         {tool.depends_on.length > 0 && (
           <Row label="Depends on" value={tool.depends_on.join(', ')} />
+        )}
+      </Section>
+
+      <Section title="Health history">
+        {history.length === 0 ? (
+          <p className="text-xs text-[var(--color-text-muted)]">No health samples yet.</p>
+        ) : (
+          <div className="flex items-center gap-1 flex-wrap">
+            {history.map((h, i) => (
+              <span
+                key={i}
+                className={cn('inline-block size-1.5 rounded-full', STATUS_DOT[h.status])}
+                title={`${h.status} · ${new Date(h.ts).toLocaleTimeString()}`}
+              />
+            ))}
+            {ageSec != null && (
+              <span className="text-[10px] text-[var(--color-text-muted)] ml-2">
+                updated {ageSec}s ago
+              </span>
+            )}
+          </div>
         )}
       </Section>
 

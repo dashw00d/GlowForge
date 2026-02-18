@@ -72,27 +72,36 @@ cd glowforge-installer && ./install.sh
 
       How do you access Claude/GPT?
 
-      [1] Claude Pro/Max subscription (recommended)
-          → Opens browser to authenticate with your Anthropic account
+      [1] Claude Pro/Max subscription (recommended — no API key)
+          → Opens browser for Anthropic authentication
           
-      [2] ChatGPT Plus/Pro subscription
-          → OAuth flow to connect your OpenAI account
+      [2] ChatGPT Plus/Pro subscription (no API key)
+          → OAuth flow for OpenAI authentication
           
-      [3] API key (Anthropic)
+      [3] Anthropic API key
           → Paste your sk-ant-... key
           
-      [4] API key (OpenAI)
+      [4] OpenAI API key
           → Paste your sk-... key
+
+      [5] Custom provider (OpenAI-compatible API)
+          → Any provider: Z.AI, OpenRouter, Together, Groq, Ollama, etc.
+          → Enter: name, base URL, API key
           
-      [5] Both (subscription + API)
-          → Configure multiple providers
+      [6] Multiple providers
+          → Configure more than one (run this step again after)
 
-      Choice: 1
+      Choice: 5
 
-      Opening browser for Claude authentication...
-      ✓ Connected as ryan@example.com
-      ✓ Claude Sonnet 4.6 available
-      ✓ Claude Opus 4.6 available
+      Provider name: Z.AI
+      Base URL: https://api.z.ai/api/coding/paas/v4
+      API key: ••••••••••••••••
+
+      Testing connection...
+      ✓ Connected to Z.AI
+      ✓ Found 4 models: glm-5, glm-4.7, glm-4.7-flash, glm-4.7-flashx
+      
+      Use glm-5 as default model? [Y/n]: y
 
 [6/7] Configuring services...
       ✓ OpenClaw gateway config written
@@ -177,23 +186,52 @@ For a subscription user, the config is minimal:
 
 No custom agents, no channels, no skills. Just the bare minimum to make Loom work. Users add complexity through the GlowForge settings panel later.
 
-### Auth Flows
+### Auth Patterns
+
+Three auth modes, covering every provider:
+
+| Mode | Config | Examples | UX |
+|------|--------|----------|-----|
+| `token` | Browser cookie auth | Claude Pro/Max | Opens browser → user logs in |
+| `oauth` | OAuth2 flow | ChatGPT Plus, Codex | Opens browser → OAuth consent |
+| `api_key` | Paste key | Anthropic, OpenAI, Z.AI, OpenRouter, Groq, Together, Fireworks | Enter key + optional base URL |
 
 **Claude subscription (`mode: token`):**
 - `openclaw configure --section model` triggers browser-based auth
 - User logs into claude.ai in their browser
 - OpenClaw captures the session token
 - No API key needed, uses their existing subscription
-- Rate limits match their plan (Pro/Max)
 
 **OpenAI subscription (`mode: oauth`):**
-- Similar OAuth flow via browser
-- Connects to user's ChatGPT Plus/Pro account
+- OAuth flow via browser
+- Connects to user's ChatGPT Plus/Pro or Codex account
 
-**API key (`mode: api_key`):**
-- Traditional paste-the-key approach
+**API key — native provider (`mode: api_key`):**
+- Paste key, provider endpoints are known
 - `openclaw config set auth.profiles.anthropic:default.apiKey sk-ant-...`
-- For power users / production deployments
+
+**API key — OpenAI-compatible (`mode: api_key` + custom baseUrl):**
+- Any provider that speaks the OpenAI API format
+- User provides: name, base URL, API key
+- Models auto-detected via `GET {baseUrl}/models` or added manually
+- OpenClaw config:
+  ```json
+  {
+    "auth.profiles.zai:default": {
+      "provider": "zai",
+      "mode": "api_key"
+    },
+    "models.providers.zai": {
+      "baseUrl": "https://api.z.ai/api/coding/paas/v4",
+      "api": "openai-completions",
+      "models": [
+        { "id": "glm-5", "name": "GLM-5", "contextWindow": 204800 }
+      ]
+    }
+  }
+  ```
+- This is how Z.AI, OpenRouter, Together, Groq, Fireworks, local Ollama, vLLM, etc. all connect
+- The settings panel "Test Connection" button verifies the key + discovers models
 
 ### Installer Script Structure
 
@@ -242,11 +280,34 @@ Active Model: [Claude Sonnet 4.6  ▾]
 ───────────────────────────────
 
 [+ Add another provider]
-  → Claude subscription
-  → ChatGPT subscription  
-  → Anthropic API key
-  → OpenAI API key
-  → Custom (OpenRouter, etc.)
+
+  Subscriptions (no API key needed):
+  → Claude Pro / Max
+  → ChatGPT Plus / Pro
+
+  API Key (native):
+  → Anthropic API
+  → OpenAI API
+
+  API Key (OpenAI-compatible — any provider):
+  → Custom provider URL + key
+  → e.g. Z.AI, OpenRouter, Together, Groq, Fireworks, local Ollama
+
+  ┌─ Custom Provider ─────────────────────────┐
+  │ Name:     [Z.AI                           ]│
+  │ Base URL: [https://api.z.ai/api/coding/...] │
+  │ API Key:  [••••••••••••••••••••••••••••••] │
+  │                                            │
+  │ Models: (auto-detected via /v1/models)     │
+  │  ✅ glm-5           200K ctx   reasoning   │
+  │  ✅ glm-4.7         200K ctx   reasoning   │
+  │  ✅ glm-4.7-flash   200K ctx   reasoning   │
+  │  ☐ glm-4.7-flashx  200K ctx   reasoning   │
+  │                                            │
+  │ [+ Add model manually]                     │
+  │                                            │
+  │ [Test Connection ✓]          [Save]        │
+  └────────────────────────────────────────────┘
 
 [Save & Restart Gateway]
 ```

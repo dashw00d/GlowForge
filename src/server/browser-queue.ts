@@ -55,6 +55,9 @@ class BrowserQueue {
       action: input.action,
       target_url: input.target_url,
       params: input.params ?? {},
+      callback_url: input.callback_url,
+      source: input.source,
+      correlation_id: input.correlation_id,
     }
     this.tasks.push(task)
     return task

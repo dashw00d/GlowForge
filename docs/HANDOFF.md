@@ -1,28 +1,45 @@
 # GlowForge Handoff — Builder Mode
 
-## Last Run (2026-02-18 — Builder Run 5)
+## Last Run (2026-02-18 — Builder Run 6)
 
 ### Task completed
-**ToolDetail docs tab — content loading + markdown rendering** — `bcc9c83`
+**Keyboard shortcuts** — `ba41c38`
 
 ### What was built
-- `src/api/lantern.ts` — `getToolDocs` now returns `DocFile[]` (per-file: path, content, error) instead of a concatenated string. Added `DocFile` interface.
-- `src/components/ui/MarkdownView.tsx` — Thin wrapper around `marked`, applies `.markdown-body` CSS class, configured with `gfm: true`. Content from local filesystem so `dangerouslySetInnerHTML` is safe here.
-- `src/index.css` — Added `.markdown-body` styles: headings with border-bottom, fenced code blocks, inline code, tables (striped), blockquotes, lists, hr, links — all using CSS vars matching the dark theme.
-- `src/components/ToolRegistry/ToolDetail.tsx` — Replaced static DocsTab with:
-  - Loads `getToolDocs(toolId)` on mount (lazy — only fires when Docs tab is selected)
-  - Loading / error / empty states
-  - **File selector** — pill buttons at top when tool has multiple doc files; auto-selects first doc with content
-  - **Content view** — MarkdownView renders selected file's markdown
-  - **Graceful fallback** — if API returns files but content is null/unavailable, shows a file list with error indicators
-  - Passes `toolId` explicitly so it can make the API call without re-fetching the full tool object
+- `src/components/LoomChat/ChatInput.tsx`
+  - Converted to `forwardRef` component
+  - Exports `ChatInputHandle` interface: `{ focus(): void }`
+  - `useImperativeHandle` exposes `focus()` — moves cursor to end of text on focus
+  - Added shortcut hint in footer: `/ or ⌘K to focus` with styled `<kbd>` elements
+  - Minor cleanup: replaced Tailwind hover classes with inline style handlers for theme-var colors
+
+- `src/components/LoomChat/ChatPanel.tsx`
+  - Added `chatInputRef = useRef<ChatInputHandle>(null)`, passed to `<ChatInput ref={chatInputRef} />`
+  - `useEffect` registers global `window.keydown` listener:
+    - Skips if target is `INPUT`, `TEXTAREA`, or `contentEditable` (avoids stealing from ToolList search, ToolDetail, etc.)
+    - `'/'` key → `e.preventDefault()` + `chatInputRef.current?.focus()`
+    - `Cmd+K` / `Ctrl+K` → `e.preventDefault()` + `chatInputRef.current?.focus()`
+    - Cleanup on unmount
+  - Chat panel header: added clickable `/` `<kbd>` badge (right-aligned, click also focuses input)
 
 ### Build
-- TypeScript: clean, Build: ✓ 1.52s (JS +43kb for `marked`)
+- TypeScript: clean, Build: ✓ 1.55s
+
+## Phase 1 MVP UI — status
+
+All Phase 1 core features are done:
+- ✅ Two-column layout (registry + chat)
+- ✅ Tool Registry: live list, status dots, start/stop
+- ✅ ToolDetail: overview, endpoints, rendered docs
+- ✅ Health strip: system health bar
+- ✅ Loom chat: send prompts, live trace visualization
+- ✅ History drawer: reload past traces
+- ✅ Schedule manager: list + toggle schedules
+- ✅ Keyboard shortcuts
 
 ## Next task (top of backlog)
 
-**Keyboard shortcut** — pressing `/` or `Cmd+K` anywhere in the app should focus the Loom chat input. Implement as a global `keydown` listener in `App.tsx` or a custom hook. The `ChatInput` textarea needs a ref exposed upward.
+**TraceCard copy button** — clipboard copy for task artifact output blocks. Small `Copy` icon button in the top-right of each `<pre>` artifact output block. On click: `navigator.clipboard.writeText(artifact.output)`, show brief "Copied!" tooltip.
 
 ## Project state
-`~/tools/GlowForge/` — 5 commits, builds clean. Phase 1 MVP UI is nearly feature-complete.
+`~/tools/GlowForge/` — 6 commits, Phase 1 MVP complete, builds clean.

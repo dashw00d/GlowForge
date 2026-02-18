@@ -9,12 +9,13 @@ _(none)_
 - [x] History drawer — collapsible recent traces in chat panel, load into session — `be25460`
 - [x] Schedule manager — collapsible drawer at left panel bottom, toggle schedules live — `4cee45c`
 - [x] ToolDetail docs tab — loads markdown via API, renders with full CSS, file selector for multi-doc tools — `bcc9c83`
+- [x] Keyboard shortcuts — `/` and `Cmd+K` focus chat from anywhere, header badge + footer hint — `ba41c38`
 
 ## Backlog
 
 ### Phase 1 – MVP UI (pick next from top)
-- [ ] Keyboard shortcut — `Cmd+K` or `/` focuses chat input from anywhere in the app
 - [ ] TraceCard: copy artifact output button — clipboard copy for task output blocks
+- [ ] TraceCard: show Loom plan text prominently when status is running (currently hidden behind collapse)
 
 ### Phase 2 – Autonomous Build
 - [ ] "Build me a tool" flow — structured prompt to Loom, show scaffold progress in TraceCard

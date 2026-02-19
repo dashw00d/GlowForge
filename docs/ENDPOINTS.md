@@ -2,7 +2,7 @@
 
 Every API endpoint used by GlowForge, the browser extension, and how they connect to Lantern and Loom.
 
-Last verified: 2026-02-18
+Last verified: 2026-02-19
 
 ---
 
@@ -14,7 +14,8 @@ Last verified: 2026-02-18
 │                  (React + Vite)                       │
 │                                                      │
 │  src/api/lantern.ts ──→ /lantern-api/* ──proxy──→ Lantern :4777
-│  src/api/loom.ts    ──→ /loom-api/*    ──proxy──→ Loom    :41002
+│  src/api/loom.ts    ──→ getLoomBaseUrl() ───────→ Loom (dynamic)
+│                    └─fallback /loom-api/* ─proxy→ Loom    :41001
 │  src/api/browser.ts ──→ /api/browser/* ──plugin──→ Vite (in-process)
 │  src/api/build.ts   ──→ /api/build/*   ──plugin──→ Vite (in-process)
 │  (scaffold/schedule) ─→ /api/scaffold  ──plugin──→ Vite (in-process)
@@ -30,7 +31,7 @@ Last verified: 2026-02-18
 │  background.js ──→ {glowforgeUrl}/api/browser/queue   │
 │                                                      │
 │  glowforgeUrl = configured in popup (user sets this)  │
-│  Default: http://localhost:5274 or https://glowforge.glow
+│  Default: https://glowforge.glow (or Lantern-assigned local port)
 └──────────────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────────────┐
@@ -41,7 +42,7 @@ Last verified: 2026-02-18
 │  orchestrate.py      ──→ {GLOWFORGE_URL}/api/browser/results/{id}
 │  callback endpoint   ←── GlowForge POSTs to /browser-result
 │                                                      │
-│  GLOWFORGE_URL = env var, default http://localhost:5274
+│  GLOWFORGE_URL = env var, default https://glowforge.glow
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -64,34 +65,36 @@ GlowForge accesses via proxy: `/lantern-api/*` → `http://127.0.0.1:4777/*`
 
 ### Mutation endpoints
 
-⚠️ **CRITICAL: Lantern `/api/projects/*` routes match by DISPLAY NAME, not id.**
-- `"GlowForge"` → 200 ✅
-- `"glowforge"` → 404 ❌
+⚠️ **Lantern `/api/projects/*` routes match by display name in route params.**
+GlowForge now normalizes to name in the UI paths, but custom callers should avoid id/name mixups.
 
 | GlowForge calls | Lantern route | Method | Notes | Status |
 |------------------|---------------|--------|-------|--------|
-| `activateTool(name)` | `/api/projects/{NAME}/activate` | POST | Case-sensitive name! | ⚠️ Verify |
-| `deactivateTool(name)` | `/api/projects/{NAME}/deactivate` | POST | Case-sensitive name! | ⚠️ Verify |
-| `restartTool(name)` | `/api/projects/{NAME}/restart` | POST | Case-sensitive name! | ⚠️ Verify |
-| `deleteProject(name)` | `/api/projects/{NAME}` | DELETE | Case-sensitive name! | ⚠️ Verify |
-| `createProject(input)` | `/api/projects` | POST | Creates registration | ⚠️ Verify |
-| `refreshProjectDiscovery(name)` | `/api/projects/{NAME}/discovery/refresh` | POST | Re-scan endpoints | ⚠️ Verify |
+| `activateTool(name)` | `/api/projects/{NAME}/activate` | POST | Uses project name route param | ✅ Works |
+| `deactivateTool(name)` | `/api/projects/{NAME}/deactivate` | POST | Uses project name route param | ✅ Works |
+| `restartTool(name)` | `/api/projects/{NAME}/restart` | POST | Uses project name route param | ✅ Works |
+| `deleteProject(name)` | `/api/projects/{NAME}` | DELETE | Uses project name route param | ✅ Works |
+| `createProject(input)` | `/api/projects` | POST | Creates registration | ✅ Works |
+| `resetProjectFromManifest(name)` | `/api/projects/{NAME}/reset` | POST | Syncs run/type from lantern.yaml | ✅ Works |
+| `refreshProjectDiscovery(name)` | `/api/projects/{NAME}/discovery/refresh` | POST | Re-scan endpoints | ✅ Works |
 
-### Known issues
-- **Name vs ID mismatch**: `lantern.ts` passes `tool.name` (display name) to lifecycle routes. The fix from the repair job updated this, but it depends on the UI passing the correct value. If any component passes `tool.id` instead of `tool.name`, it'll 404.
-- **Periodic 500s**: `/api/tools` returns 500 every ~10 minutes. Cause unknown — possibly Lantern health check timeouts.
+### Notes
+- **Name vs ID routing**: keep project lifecycle calls aligned to project-name routes in Lantern.
+- **Concurrency stability**: scan/refresh 500s were addressed in Lantern manager/controller hardening and verified with repeated smoke checks.
 
 ---
 
-## Loom API (port 41002)
+## Loom API (dynamic port; current local runtime 41001)
 
-GlowForge accesses via proxy: `/loom-api/*` → `http://127.0.0.1:41002/*`
+GlowForge resolves Loom base dynamically via `GET /lantern-api/api/tools/loom` (`base_url`/`upstream_url`).
+
+Fallback path in local dev remains: `/loom-api/*` → `http://127.0.0.1:41001/*`
 
 ### Endpoints GlowForge uses
 
 | GlowForge calls | Loom route | Method | Returns | Status |
 |------------------|------------|--------|---------|--------|
-| `sendPrompt(prompt)` | `/prompt` | POST | `{trace_id, status}` | ✅ Works |
+| `sendPrompt(prompt, options?)` | `/prompt` | POST | `{trace_id, status}` | ✅ Works |
 | `getTraceStatus(id)` | `/status/{trace_id}` | GET | `TraceState` | ✅ Works |
 | `confirmTrace(id, approved)` | `/confirm/{trace_id}` | POST | - | ✅ Works |
 | `cancelTrace(id)` | `/traces/{trace_id}` | DELETE | `{trace_id, status, processes_killed}` | ✅ Works |
@@ -133,9 +136,9 @@ GlowForge accesses via proxy: `/loom-api/*` → `http://127.0.0.1:41002/*`
 | `/dashboard/data` | GET | No |
 | `/admin/compact` | POST | No |
 
-### Known issues
-- **`/history` returns `{runs: []}` not `{history: []}`** — fixed in loom.ts to read `r.runs`
-- **No `/jobs` endpoint** — GlowForge was calling `/jobs` which 404'd. Now calls `/history`.
+### Notes
+- `/history` can return `runs`; client normalizes `runs ?? history`.
+- Builder traces require `workspace` + `tool_id` metadata. Plain prompts without metadata complete as chat traces and do not drive build.yaml updates.
 
 ---
 
@@ -243,8 +246,13 @@ proxy: {
     target: 'http://127.0.0.1:4777',
     rewrite: (p) => p.replace(/^\/lantern-api/, ''),
   },
+  '/lantern-ws': {
+    target: 'ws://127.0.0.1:4777',
+    ws: true,
+    rewrite: (p) => p.replace(/^\/lantern-ws/, ''),
+  },
   '/loom-api': {
-    target: 'http://127.0.0.1:41002',  // was 41000, fixed
+    target: 'http://127.0.0.1:41001',  // local fallback only
     rewrite: (p) => p.replace(/^\/loom-api/, ''),
   },
 }
@@ -252,22 +260,16 @@ proxy: {
 
 **Path rewriting:**
 - `/lantern-api/api/tools` → `http://127.0.0.1:4777/api/tools`
-- `/loom-api/schedules` → `http://127.0.0.1:41002/schedules`
+- `/loom-api/schedules` → `http://127.0.0.1:41001/schedules`
 
 ---
 
-## Known Issues / Inconsistencies
+## Known Constraints
 
-1. **Lantern name vs id**: Lifecycle routes use display name ("GlowForge") not id ("glowforge"). Any UI component passing `tool.id` instead of `tool.name` will 404 silently.
+1. **Lifecycle naming**: custom callers should use Lantern's project-name route semantics consistently.
 
-2. **Lantern periodic 500s**: `/api/tools` returns 500 every ~10 minutes. Needs investigation in Lantern.
+2. **Extension URL config**: browser extension still requires explicit GlowForge URL in popup.
 
-3. **Build polling overhead**: Even with exists-first probe, `loadBuilds()` fires 9 HTTP requests every 10 seconds for tools that will never have build.yaml. Now runs once on load instead of every poll cycle.
+3. **Callback host assumptions**: callback URLs still assume localhost in some external integrations.
 
-4. **Loom port hardcoded**: `vite.config.ts` hardcodes Loom at port 41002. If Loom restarts on a different port, GlowForge breaks. Could resolve dynamically via Lantern's project data.
-
-5. **Extension URL not auto-discovered**: Extension requires manual URL config in popup. Could auto-detect via well-known endpoint or mDNS.
-
-6. **Callback URLs assume localhost**: Twitter Intel's callback_url defaults to `http://localhost:8410/browser-result`. Won't work if services run on different hosts.
-
-7. **No auth on any endpoint**: All APIs are unauthenticated. Fine for local dev, needs consideration for any network exposure.
+4. **No auth on local APIs**: acceptable for local dev; requires hardening before wider network exposure.

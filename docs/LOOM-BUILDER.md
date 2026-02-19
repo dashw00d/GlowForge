@@ -14,6 +14,13 @@ seconds and renders a `BuildCard` in the registry with a live progress bar.
 **Your job as the builder agent:** Keep `build.yaml` up to date as you work.
 Every phase/step completion should immediately update the file.
 
+For GlowForge-triggered builds, Loom must receive prompt metadata with:
+
+- `workspace`
+- `tool_id`
+
+Without these fields, Loom treats the run as a normal chat trace and build status will not be associated with a tool manifest.
+
 ---
 
 ## File Location
@@ -254,16 +261,18 @@ Because all state is in `build.yaml`, you can always resume:
 If you need to check the current state from the API:
 
 ```
-GET http://localhost:5274/api/build/{tool-id}
+GET {GLOWFORGE_URL}/api/build/{tool-id}
 → returns parsed BuildManifest JSON
 ```
 
 To write from a script during build:
 ```
-POST http://localhost:5274/api/build/{tool-id}/write
+POST {GLOWFORGE_URL}/api/build/{tool-id}/write
 Content-Type: application/json
 { "content": "...yaml string..." }
 ```
+
+Typical local `GLOWFORGE_URL` is `http://127.0.0.1:41000` (Lantern-managed) or `https://glowforge.glow`.
 
 ---
 

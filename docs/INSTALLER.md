@@ -116,13 +116,13 @@ cd glowforge-installer && ./install.sh
       ✓ OpenClaw        localhost:18789    🟢
       ✓ Lantern         localhost:4777     🟢
       ✓ Loom            loom.glow          🟢
-      ✓ GlowForge       localhost:5274     🟢
+      ✓ GlowForge       localhost:41000     🟢 (typical Lantern-managed port)
 
 ════════════════════════════
 🔥 GlowForge is ready!
 
-Open: http://localhost:5274
-      http://glowforge.glow
+Open: http://localhost:41000
+      https://glowforge.glow
 
 Browser extension: chrome://extensions → Load unpacked → ~/tools/browser/extension/
 ```

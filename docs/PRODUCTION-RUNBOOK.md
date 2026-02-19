@@ -64,6 +64,7 @@ Expected:
 - Lantern: `127.0.0.1:4777`
 - GlowForge: `:41000`
 - Loom: `:41001`
+- `:41002` may belong to another managed project; it should not be mistaken for Loom
 - `/loom-api/health` returns `"service":"loom"`
 
 ## 5) Run automated smoke checks

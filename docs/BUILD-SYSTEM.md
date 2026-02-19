@@ -115,16 +115,15 @@ Every tool build follows these phases (Loom can add/skip as needed):
 
 ## Loom Integration
 
-### How Loom writes build.yaml
+### How the live flow works now
 
-When the build agent starts:
-1. Create `~/tools/{id}/`
-2. Write `build.yaml` with `status: pending`, all phases listed
-3. Write minimal `lantern.yaml` (id, name, description, kind)
-4. Update `build.yaml` → `status: building`
-5. Work through phases, updating the file after each step
-6. On success: `status: ready`, `completed_at` set
-7. On failure: `status: failed`, `error` set
+Current production flow:
+1. GlowForge wizard scaffolds `~/tools/{id}/` and writes `lantern.yaml`, `README.md`, and initial `build.yaml` (`status: pending`)
+2. GlowForge registers project in Lantern and syncs from manifest (`/api/projects/{name}/reset`)
+3. GlowForge starts Loom with metadata (`workspace`, `tool_id`)
+4. Loom transitions `build.yaml` to `building/testing/ready|failed` while updating phases and log entries
+5. On success, Loom completes registration phase and Lantern runs the tool
+6. On failure, Loom writes failed phase + error details
 
 ### Loom builder agent instructions (add to builder prompt)
 

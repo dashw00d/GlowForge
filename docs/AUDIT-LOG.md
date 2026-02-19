@@ -1,5 +1,15 @@
 # GlowForge API Audit Log
 
+> Historical snapshot (2026-02-18).
+> Many findings below have been fixed. Use `docs/PRODUCTION-RUNBOOK.md` and `docs/ENDPOINTS.md` for current behavior.
+
+## Current status notes (2026-02-19)
+
+- `getLoomBaseUrl()` is no longer a static stub; it resolves Loom dynamically from Lantern project data, with `/loom-api` fallback.
+- New-tool flow now passes `workspace` + `tool_id` metadata into Loom build prompts.
+- Lantern scan/refresh list endpoint instability was addressed and verified by repeated concurrency smoke checks.
+- Build flow (`pending -> building -> ready/failed`) is active end-to-end via scaffold + Loom build reporter.
+
 Audit of every outgoing HTTP call in each source component, verified against live endpoints.
 
 ---

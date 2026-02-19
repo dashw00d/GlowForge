@@ -2,6 +2,9 @@
 
 Source: `QA-REPORT.md` from 2026-02-18 QA run.
 
+> Historical document: this tracks a completed repair sprint.
+> For current operational checks, use `docs/PRODUCTION-RUNBOOK.md` and `scripts/prod-smoke.sh`.
+
 ## Fix Order
 
 ### 1. ✅ FIXED — Loom proxy port — `c3c8b18`

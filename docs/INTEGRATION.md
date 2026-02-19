@@ -1,14 +1,23 @@
 # Integration — Wiring Twitter Intel ↔ GlowForge Queue ↔ Extension ↔ Loom
 
-## The Problem
+> Historical integration design doc.
+> Keep for reference, but validate runtime behavior against `docs/ENDPOINTS.md` and live smoke tests.
 
-Three smart systems can't talk to each other:
+## Current State (2026-02-19)
+
+Core queue connectivity is live:
 
 ```
-Twitter Intel → calls dead daemon (localhost:41001) ❌
-Extension    → posts results to GlowForge, nobody reads them
-Loom         → doesn't know the extension exists
+Twitter Intel ──POST──→ GlowForge browser queue
+Extension    ──poll──→ executes tasks ──POST results──→ GlowForge
+Loom         ──POST──→ GlowForge browser queue (same task path)
 ```
+
+Remaining work in this area is mostly product polish (auto-discovery, stronger callback guarantees, richer routing policies).
+
+---
+
+## Original Gap Analysis (Historical)
 
 ## The Fix
 
@@ -78,7 +87,7 @@ resp = await client.post(f"{BROWSER_BASE_URL}/tasks/execute", json=payload)
 
 ### After (async via queue):
 ```python
-GLOWFORGE_URL = os.environ.get("GLOWFORGE_URL", "http://localhost:5274")
+GLOWFORGE_URL = os.environ.get("GLOWFORGE_URL", "https://glowforge.glow")
 
 async def submit_browser_task(action: str, params: dict, target_url: str = None) -> str:
     """Submit task to GlowForge queue, return task_id."""
@@ -147,7 +156,7 @@ browser_actions:
   - follow
   - extract_posts
   - run_steps  # schema-based playback
-queue_url: http://localhost:5274/api/browser
+queue_url: https://glowforge.glow/api/browser
 ```
 
 Loom's tool selection node can then see "browser actions available" and include them in the plan.
@@ -159,7 +168,7 @@ Loom already has `http` action type in its scheduler. It can POST directly to Gl
 ```json
 {
   "action_type": "http",
-  "url": "http://localhost:5274/api/browser/tasks",
+  "url": "https://glowforge.glow/api/browser/tasks",
   "method": "POST",
   "body": {
     "action": "run_steps",

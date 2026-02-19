@@ -120,7 +120,7 @@ const TEMPLATE_CONFIGS: Record<string, TemplateConfig> = {
   },
   script: {
     type: 'proxy',
-    runCmd: 'node index.js',
+    runCmd: 'PORT=${PORT} node index.js',
     runCwd: '.',
     healthEndpoint: null,
     root: null,

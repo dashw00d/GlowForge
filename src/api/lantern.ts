@@ -8,6 +8,9 @@ import type {
 
 export const LANTERN_BASE = '/lantern-api'
 const BASE = LANTERN_BASE
+const LOOM_BASE_TTL_MS = 5000
+
+let loomBaseCache: { value: string; expiresAt: number } | null = null
 
 async function req<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
@@ -104,7 +107,31 @@ export async function deleteProject(name: string): Promise<void> {
 
 // Resolve Loom base URL via Vite proxy
 export async function getLoomBaseUrl(): Promise<string> {
-  return '/loom-api'
+  const now = Date.now()
+  if (loomBaseCache && now < loomBaseCache.expiresAt) {
+    return loomBaseCache.value
+  }
+
+  try {
+    const r = await req<ApiResponse<ToolDetail>>('GET', '/api/tools/loom')
+    const resolved = (r.data.base_url || r.data.upstream_url || '').trim().replace(/\/+$/, '')
+    if (resolved.startsWith('http://') || resolved.startsWith('https://')) {
+      loomBaseCache = {
+        value: resolved,
+        expiresAt: now + LOOM_BASE_TTL_MS,
+      }
+      return resolved
+    }
+  } catch {
+    // Fallback below keeps local dev working even if Lantern lookup fails.
+  }
+
+  const fallback = '/loom-api'
+  loomBaseCache = {
+    value: fallback,
+    expiresAt: now + LOOM_BASE_TTL_MS,
+  }
+  return fallback
 }
 
 // ─── Tool Creation ────────────────────────────────────────────────────────────
@@ -133,6 +160,12 @@ export interface CreateProjectInput {
 /** Register a new project with Lantern (does not write files). */
 export async function createProject(input: CreateProjectInput): Promise<ToolSummary> {
   const r = await req<ApiResponse<ToolSummary>>('POST', '/api/projects', input)
+  return r.data
+}
+
+/** Reset a project's runtime config from its local lantern.yaml/lantern.yml. */
+export async function resetProjectFromManifest(name: string): Promise<ToolSummary> {
+  const r = await req<ApiResponse<ToolSummary>>('POST', `/api/projects/${encodeURIComponent(name)}/reset`)
   return r.data
 }
 

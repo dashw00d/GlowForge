@@ -12,6 +12,7 @@ import {
 import {
   scaffoldTool,
   createProject,
+  resetProjectFromManifest,
   refreshProjectDiscovery,
   listTemplates,
 } from '../../api/lantern'
@@ -117,6 +118,7 @@ export function NewToolModal({ onClose, onCreated }: Props) {
 
   const nameValid = slug.length >= 2
   const canSubmit = nameValid && step === 'form'
+  const selectedTemplate = templates.find((t) => t.name === template)
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
@@ -157,11 +159,20 @@ export function NewToolModal({ onClose, onCreated }: Props) {
         name: slug,
         description,
         kind,
-        type: template ? undefined : 'proxy',
+        type: selectedTemplate?.type || 'proxy',
         path: scaffold.path,
         tags,
       })
       addProgress(`✓ Registered "${slug}" with Lantern`)
+
+      // Step 2b: reset from generated manifest so type/run commands are in sync
+      addProgress('🧭 Syncing project config from lantern.yaml…')
+      try {
+        await resetProjectFromManifest(slug)
+        addProgress('✓ Manifest sync complete')
+      } catch {
+        addProgress('⚠ Manifest sync skipped (Lantern will use registered defaults)')
+      }
 
       // Step 3: refresh discovery
       addProgress('🔍 Running discovery scan…')
@@ -186,7 +197,7 @@ export function NewToolModal({ onClose, onCreated }: Props) {
         const res = await sendPrompt(prompt, {
           workspace: scaffold.path,
           toolId: slug,
-          toolName: displayName || slug,
+          toolName: slug,
         })
         addProgress(`✓ Loom build started (${res.trace_id.slice(0, 12)})`)
       } catch {
